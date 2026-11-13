@@ -29,9 +29,9 @@
 
 - [x] ① 주행거리 주소·매개변수, 리스너가 오는 간격 (README 검증 기록)
 - [x] ② 기어 이벤트와 누적거리 읽기 순서 (통과, 단 P 이후 약 1.5초 대기 규칙 필요 — 설계서와 다르므로 확인 요청)
-- [ ] ③ `PARKING_BRAKE_ON` 읽기와 필요한 권한
-- [ ] ④ 좌석 위치·등받이 각도 읽기, Virtual Console에서 바꿀 수 있는지
-- [ ] ⑤ FusedLocation: 수신 중단 가능 여부, `confidence`, `addProximityAlert`
+- [x] ③ `PARKING_BRAKE_ON` 읽기와 필요한 권한 (읽기 O, VC로 값이 안 바뀜 → 패널에서 주차 브레이크 칸 제외)
+- [x] ④ 좌석 위치·등받이 각도 읽기, Virtual Console에서 바꿀 수 있는지 (읽기 O, 바꿀 수 없음 → 마지막 사용자 추천)
+- [x] ⑤ FusedLocation: 수신 중단 가능 여부, `confidence`, `addProximityAlert` (중단 가능: cmd location, confidence 5.0 고정, 근접 알림 동작하나 직접 거리 계산 사용)
 - [ ] ⑥ 길안내 시작 시 `tollFare`와 목적지 이름이 오는 시점
 - [ ] ⑦ TTS를 호출마다 새로 만들면 반복 재생이 되는지
 - [ ] ⑧ STT 부분 결과
@@ -111,4 +111,6 @@
 - [ ] `.gitignore`에 `!apk/*.apk` 예외 추가, `apk/정통윤_AutoLog_release.apk` 배치
 - [ ] README: 앱 이름·한 줄 소개, 실행 방법, 테스트 환경·필요 설정, APK 위치, 검증 기록
 - [ ] 시연 영상 녹화 (앱 + Virtual Console 동시)
+  - 결정(2026-11-13): 기어 D 동안 OS가 앱 화면을 가리므로(README 검증 기록), 주행 구간은 "주행 중에는 화면이 잠기고, 서비스가 뒤에서 기록한다"는 자막으로 설명한다. 앱 개발은 바꾸지 않는다.
+  - 녹화 때 Virtual Console 화면을 함께 잡아 주행거리가 올라가는 것을 보여 주고, 기어 P 뒤 기록부 한 줄이 채워지는 장면에서 앱 화면을 보여 준다.
 - [ ] 클린 빌드 최종 검증 (인터넷 연결 상태)

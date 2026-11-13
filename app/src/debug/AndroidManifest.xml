@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- 단계 0 확인 실험용(debug 빌드에만 포함). 사용법은 Step0Receiver.kt 참고 -->
+        <receiver android:name=".debug.Step0Receiver" android:exported="true" />
+    </application>
+</manifest>

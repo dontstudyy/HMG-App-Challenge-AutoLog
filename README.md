@@ -38,6 +38,28 @@
 - 앱 프로세스가 처음 뜨는 데 약 9초 걸린다(첫 실행 `Displayed +9s487ms`). 그동안 기어·주행거리를 바꾸면 앱은 시작할 때의 값(기어 D, 누적거리 N)에서 빈 구간 + 새 운행으로 처리한다.
 - 운행기록부 ⑤⑥은 정수 km로 버림해서 0.3km 운행이 1로 보일 수 있다(2.7→3.0은 2→3, ⑦=1). 설계서 6장 규칙이다.
 
+### 단계 0 ③ 주차 브레이크 — 읽기는 되지만 쓸 수 없음 (칸 제외)
+
+- AAOS `PARKING_BRAKE_ON`(0x11200402)은 추가 권한 없이 읽기·구독이 된다(`false`, 구독 시 초기 이벤트 1회).
+- Virtual Console의 `ParkingBrake` 텔테일을 On으로 바꿔도(`PUT /vehicle/telltales/simulator?type=ParkingBrake&state=On&color=Red`, 200) 앱이 읽는 값은 `false`에서 변하지 않았다. 시연에서 보여 줄 수 없다.
+- 결정(설계서 3장): '차가 아는 숫자' 패널에서 주차 브레이크 칸을 뺀다. 주차 판정은 기어 P만 쓴다.
+
+### 단계 0 ④ 좌석 위치·등받이 각도 — 읽기 O, Virtual Console로 바꿀 수 없음 (마지막 사용자 추천)
+
+- Pleos `getCurrentSeatForeAftPosition`·`BackrestAnglePosition`·`HeightPosition`·`TiltPosition`이 모두 읽히고(0~100, `READ_WRITE`) `register…Position` 리스너가 동작한다. 좌석 area는 ROW_1_LEFT/RIGHT, ROW_2_LEFT/RIGHT.
+- Virtual Console은 `PUT /vehicle/seat?kind=position&control=slide&area=driver&value=40`(또는 `kind=move`)을 200으로 받고 화면 값도 바뀌지만, 차량 쪽 로그가 `Recline is 0.3, revised position: 0`으로 **0으로 되돌린다.** 앱이 읽는 값은 항상 0이다.
+- 결정(설계서 2장 B5): 좌석 위치로는 사용자를 추천할 수 없으므로 '마지막 사용자 추천'으로 간다.
+- 참고: 착석(`getCurrentSeatOccupancy`)은 에뮬레이터에서 VC 값과 일치하지 않았다(VC 둘 다 false일 때 ROW_1_LEFT=false, ROW_1_RIGHT=true). 사용하지 않는다.
+
+### 단계 0 ⑤ FusedLocation
+
+- `isSupported()=true`. `adb emu geo fix <경도> <위도>`가 콜백에 반영된다(콜백은 약 1.2초 간격). 새 `geo fix`를 보내지 않아도 마지막 위치가 계속 반복된다. `confidence`는 항상 5.0, `heading` 0.0.
+- **포그라운드 서비스(또는 화면)가 있을 때만 계속 온다.** 브로드캐스트로만 뜬 백그라운드 프로세스는 5건(약 10초) 뒤 끊겼다. 서비스가 있으면 60초 이상 유지됐다.
+- 수신 중단은 `adb shell cmd location set-location-enabled false --user 10`으로 만들 수 있다(8초간 이벤트 0건, `onError` 없음). `true`로 되돌리면 재등록 없이 다시 온다. 지하주차장 '위치 끊김' 장면은 이 명령으로 재현할 수 있고, 앱은 '마지막 수신 시각이 일정 시간(기본 10초) 넘게 갱신 없음'으로 끊김을 판정한다.
+- `addProximityAlert`(ProximityAlertRequest(위도, 경도, 반경m, {ENTER, EXIT}))는 동작한다. A에서 6km 밖으로 가면 EXIT, 돌아오면 ENTER, 반경 300m 경계에서도 발화(약 344m 밖 EXIT, 약 245m 안 ENTER). 이벤트는 위치 갱신 후 수 초 안에 온다.
+- 결정: 장소 판정은 설계서대로 마지막 위치와 등록 장소의 거리를 직접 계산한다(단순하고 단위 테스트가 쉬움). `addProximityAlert`는 쓰지 않는다.
+- 위치 실험 후 에뮬레이터 위치는 `126.98, 37.55`(서울)로 남아 있다.
+
 ### 단계 0 ⑩ 화면 해상도
 
 - `wm size` 2560x1440, 밀도 160dpi. 앱 창은 홈 화면 안에서 약 1682x1210px(853,90 ~ 2535,1300)로 열렸다.
