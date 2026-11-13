@@ -12,6 +12,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import com.dontstudyy.autolog.classify.Place
+import com.dontstudyy.autolog.classify.PlaceKind
 import com.dontstudyy.autolog.trip.Category
 import com.dontstudyy.autolog.trip.Trip
 import com.dontstudyy.autolog.trip.TripKind
@@ -30,6 +32,27 @@ data class TripEntity(
     val note: String,
     val kind: String,
     val status: String,
+    val startPlace: String,
+    val endPlace: String,
+    val endLat: Double?,
+    val endLon: Double?,
+)
+
+@Entity(tableName = "place")
+data class PlaceEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val kind: String,
+    val lat: Double,
+    val lon: Double,
+    val radiusM: Float,
+)
+
+@Entity(tableName = "profile")
+data class ProfileEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val dept: String,
+    val name: String,
 )
 
 @Entity(tableName = "setting")
@@ -58,6 +81,24 @@ interface AutoLogDao {
     @Query("DELETE FROM trip WHERE id = :id")
     fun delete(id: Long)
 
+    @Query("SELECT * FROM place ORDER BY id")
+    fun places(): List<PlaceEntity>
+
+    @Insert
+    fun insertPlace(p: PlaceEntity): Long
+
+    @Query("DELETE FROM place WHERE id = :id")
+    fun deletePlace(id: Long)
+
+    @Query("SELECT * FROM profile ORDER BY id")
+    fun profiles(): List<ProfileEntity>
+
+    @Insert
+    fun insertProfile(p: ProfileEntity): Long
+
+    @Query("DELETE FROM profile WHERE id = :id")
+    fun deleteProfile(id: Long)
+
     @Query("SELECT value FROM setting WHERE `key` = :key")
     fun getSetting(key: String): String?
 
@@ -68,13 +109,15 @@ interface AutoLogDao {
     fun removeSetting(key: String)
 }
 
-@Database(entities = [TripEntity::class, SettingEntity::class], version = 1, exportSchema = false)
+@Database(entities = [TripEntity::class, SettingEntity::class, PlaceEntity::class, ProfileEntity::class], version = 2, exportSchema = false)
 abstract class AutoLogDb : RoomDatabase() {
     abstract fun dao(): AutoLogDao
 
     companion object {
         fun create(ctx: Context): AutoLogDb =
             Room.databaseBuilder(ctx.applicationContext, AutoLogDb::class.java, "autolog.db")
+                // 개발 중 스키마 변경은 기록을 지우고 새로 만든다(제출 전 확정). 서비스 시작 시 기준값부터 다시 잡는다.
+                .fallbackToDestructiveMigration(true)
                 .allowMainThreadQueries() // 데이터가 작고, 엔진 호출을 한 스레드(메인)에 모으기 위해
                 .build()
     }
@@ -83,11 +126,13 @@ abstract class AutoLogDb : RoomDatabase() {
 private fun TripEntity.toTrip() = Trip(
     id, startTimeMs, endTimeMs, userId, startTenths, endTenths,
     Category.valueOf(category), note, TripKind.valueOf(kind), TripStatus.valueOf(status),
+    startPlace, endPlace, endLat, endLon,
 )
 
 private fun Trip.toEntity() = TripEntity(
     id, startTimeMs, endTimeMs, userId, startTenths, endTenths,
     category.name, note, kind.name, status.name,
+    startPlace, endPlace, endLat, endLon,
 )
 
 /** 엔진이 쓰는 [TripStore]의 Room 구현. */
@@ -109,3 +154,14 @@ class RoomTripStore(private val dao: AutoLogDao) : TripStore {
         const val KEY_LAST_END = "lastEndTenths"
     }
 }
+
+fun PlaceEntity.toPlace() = Place(id, name, PlaceKind.valueOf(kind), lat, lon, radiusM)
+
+fun Place.toEntity() = PlaceEntity(id, name, kind.name, lat, lon, radiusM)
+
+/** 사용자 프로필. 부서와 이름. */
+data class Profile(val id: Long = 0, val dept: String, val name: String) {
+    val label: String get() = if (dept.isBlank()) name else "$dept $name"
+}
+
+fun ProfileEntity.toProfile() = Profile(id, dept, name)

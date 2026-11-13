@@ -22,10 +22,19 @@ data class Trip(
     val note: String = "",
     val kind: TripKind = TripKind.NORMAL,
     val status: TripStatus = TripStatus.IN_PROGRESS,
+    /** 출발·도착 시점에 위치가 속한 등록 장소 이름. 미등록이면 빈 문자열. */
+    val startPlace: String = "",
+    val endPlace: String = "",
+    /** 도착 시점의 마지막 위치(미등록 위치를 거래처로 저장할 때 쓴다). 위치를 모르면 null. */
+    val endLat: Double? = null,
+    val endLon: Double? = null,
 ) {
     /** 진행 중이면 0. */
     val distanceTenths: Int get() = (endTenths ?: startTenths) - startTenths
 }
+
+/** 운행 시작·도착 시점의 위치 정보. 이름은 등록 장소 이름(없으면 빈 문자열). */
+data class Where(val place: String = "", val lat: Double? = null, val lon: Double? = null)
 
 /** 킬로미터(Float)를 0.1km 단위 정수로. 소수 오차 방지를 위해 반올림한다. */
 fun kmToTenths(km: Float): Int = Math.round(km * 10f)

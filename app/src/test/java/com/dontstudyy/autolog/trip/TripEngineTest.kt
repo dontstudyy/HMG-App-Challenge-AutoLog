@@ -227,6 +227,58 @@ class TripEngineTest {
     }
 
     @Test
+    fun 출발_도착_장소와_사용자가_운행에_저장된다() {
+        val store = InMemoryTripStore()
+        val e = TripEngine(store)
+        e.onServiceStart(0, km(10.0), true)
+        e.onGearChanged(1_000, false, km(10.0), userId = 7, where = Where("집"))
+        e.onOdometer(2_000, km(12.0))
+        e.onGearChanged(3_000, true, km(12.0), where = Where("회사", 37.57, 127.01))
+        e.tick(3_000 + TripEngine.SETTLE_MS)
+        val t = store.all().single()
+        assertEquals(7L, t.userId)
+        assertEquals("집", t.startPlace)
+        assertEquals("회사", t.endPlace)
+        assertEquals(37.57, t.endLat!!, 1e-9)
+        assertEquals(127.01, t.endLon!!, 1e-9)
+    }
+
+    @Test
+    fun 운행이_끝나면_완료_콜백이_한_번_불린다() {
+        val store = InMemoryTripStore()
+        val e = TripEngine(store)
+        val done = mutableListOf<Trip>()
+        e.onTripDone = { done += it }
+        e.onServiceStart(0, km(10.0), true)
+        e.drive(1_000, km(10.0), km(12.0))
+        assertEquals(1, done.size)
+        assertEquals(TripStatus.DONE, done[0].status)
+        assertEquals(km(2.0), done[0].distanceTenths)
+    }
+
+    @Test
+    fun 버려진_운행과_빈구간은_완료_콜백이_없다() {
+        val store = InMemoryTripStore()
+        val e = TripEngine(store)
+        val done = mutableListOf<Trip>()
+        e.onTripDone = { done += it }
+        e.onServiceStart(0, km(10.0), true)
+        e.drive(1_000, km(10.0), km(10.0)) // 거리 0: 버림
+        TripEngine(store).also { it.onTripDone = { t -> done += t } }.onServiceStart(50_000, km(15.0), true) // 빈 구간
+        assertTrue(done.isEmpty())
+    }
+
+    @Test
+    fun 서비스_시작_때_기어가_P가_아니면_시작_장소를_저장한다() {
+        val store = InMemoryTripStore()
+        TripEngine(store).onServiceStart(0, km(10.0), true)
+        TripEngine(store).onServiceStart(5_000, km(10.0), isPark = false, userId = 3, where = Where("회사"))
+        val t = store.inProgress()!!
+        assertEquals("회사", t.startPlace)
+        assertEquals(3L, t.userId)
+    }
+
+    @Test
     fun 무작위_사건_순서에서도_불변식이_지켜진다() {
         for (seed in 1..300) {
             val rnd = Random(seed.toLong())

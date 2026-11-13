@@ -16,12 +16,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,6 +35,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dontstudyy.autolog.AutoLogRuntime
+import com.dontstudyy.autolog.SavePlacePrompt
+import com.dontstudyy.autolog.classify.Place
+import com.dontstudyy.autolog.classify.findPlace
+import com.dontstudyy.autolog.data.Profile
+import com.dontstudyy.autolog.location.Fix
+import com.dontstudyy.autolog.location.isLost
 import com.dontstudyy.autolog.report.logbookRows
 import com.dontstudyy.autolog.trip.Category
 import com.dontstudyy.autolog.trip.Trip
@@ -41,25 +48,42 @@ import com.dontstudyy.autolog.trip.TripKind
 import com.dontstudyy.autolog.trip.TripStatus
 import com.dontstudyy.autolog.vehicle.Gear
 import com.dontstudyy.autolog.vehicle.VehicleState
+import kotlinx.coroutines.delay
+
+private enum class Screen { MAIN, REPORT, SETTINGS }
+
+/** 일반업무로 답할 때 고르는 자주 쓰는 메모. */
+private val MEMO_CHIPS = listOf("거래처 미팅", "고객 방문", "납품·수거", "교육·회의")
 
 @Composable
 fun AutoLogApp() {
-    var showReport by remember { mutableStateOf(false) }
+    var screen by remember { mutableStateOf(Screen.MAIN) }
     val vehicle by AutoLogRuntime.vehicle.collectAsState()
     val trips by AutoLogRuntime.trips.collectAsState()
     val dismissed by AutoLogRuntime.dismissedGaps.collectAsState()
+    val places by AutoLogRuntime.places.collectAsState()
+    val profiles by AutoLogRuntime.profiles.collectAsState()
+    val userId by AutoLogRuntime.currentUserId.collectAsState()
+    val fix by AutoLogRuntime.lastFix.collectAsState()
+    val savePrompt by AutoLogRuntime.savePrompt.collectAsState()
 
     Box(Modifier.fillMaxSize().background(Palette.bg)) {
-        if (showReport) {
-            ReportScreen(trips = trips, onBack = { showReport = false })
-        } else {
-            MainScreen(vehicle, trips, dismissed, onReport = { showReport = true })
+        when (screen) {
+            Screen.REPORT -> ReportScreen(trips = trips, onBack = { screen = Screen.MAIN })
+            Screen.SETTINGS -> SettingsScreen(places, profiles, userId, fix, onBack = { screen = Screen.MAIN })
+            Screen.MAIN -> MainScreen(
+                vehicle, trips, dismissed, places, profiles, userId, fix, savePrompt,
+                onReport = { screen = Screen.REPORT }, onSettings = { screen = Screen.SETTINGS },
+            )
         }
     }
 }
 
 @Composable
-private fun MainScreen(vehicle: VehicleState, trips: List<Trip>, dismissed: Set<Long>, onReport: () -> Unit) {
+private fun MainScreen(
+    vehicle: VehicleState, trips: List<Trip>, dismissed: Set<Long>, places: List<Place>, profiles: List<Profile>,
+    userId: Long, fix: Fix?, savePrompt: SavePlacePrompt?, onReport: () -> Unit, onSettings: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("오토로그", color = Palette.text, fontSize = 30.sp, fontWeight = FontWeight.Bold)
@@ -72,22 +96,32 @@ private fun MainScreen(vehicle: VehicleState, trips: List<Trip>, dismissed: Set<
             )
         }
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            AppCard(vehicle, trips, dismissed, onReport, Modifier.weight(0.55f).fillMaxHeight())
-            CarNumbersPanel(vehicle, trips, Modifier.weight(0.45f).fillMaxHeight())
+            AppCard(vehicle, trips, dismissed, profiles, userId, savePrompt, onReport, onSettings, Modifier.weight(0.55f).fillMaxHeight())
+            CarNumbersPanel(vehicle, trips, places, fix, Modifier.weight(0.45f).fillMaxHeight())
         }
-        LogbookStrip(trips)
+        LogbookStrip(trips, profiles)
     }
 }
 
 // ---------------------------------------------------------------- 왼쪽: 앱 카드
 
 @Composable
-private fun AppCard(vehicle: VehicleState, trips: List<Trip>, dismissed: Set<Long>, onReport: () -> Unit, modifier: Modifier) {
+private fun AppCard(
+    vehicle: VehicleState, trips: List<Trip>, dismissed: Set<Long>, profiles: List<Profile>, userId: Long,
+    savePrompt: SavePlacePrompt?, onReport: () -> Unit, onSettings: () -> Unit, modifier: Modifier,
+) {
     val running = trips.lastOrNull { it.status == TripStatus.IN_PROGRESS }
     val driving = running != null && vehicle.gear != Gear.PARK
-    val gap = trips.lastOrNull { it.kind == TripKind.GAP && it.status == TripStatus.DONE && it.category == Category.UNCLASSIFIED && it.id !in dismissed }
-    // 질문·정리 카드는 주행 규제가 풀려 있을 때만(설계서 4장)
+    // 질문·정리·프로필 카드는 주행 규제가 풀려 있을 때만(설계서 4장)
     val canAsk = vehicle.uxRestricted != true && !driving
+    val question = trips.lastOrNull {
+        it.kind == TripKind.NORMAL && it.status == TripStatus.DONE && it.category == Category.UNCLASSIFIED && it.id !in dismissed
+    }
+    val gap = trips.lastOrNull {
+        it.kind == TripKind.GAP && it.status == TripStatus.DONE && it.category == Category.UNCLASSIFIED && it.id !in dismissed
+    }
+    var picking by remember { mutableStateOf(false) }
+    val user = profiles.firstOrNull { it.id == userId }
 
     Column(
         modifier.clip(RoundedCornerShape(28.dp)).background(Palette.card)
@@ -99,12 +133,18 @@ private fun AppCard(vehicle: VehicleState, trips: List<Trip>, dismissed: Set<Lon
             Spacer(Modifier.width(12.dp))
             Text(if (driving) "주행 중" else "정차 중", color = Palette.dim, fontSize = 20.sp)
             Spacer(Modifier.weight(1f))
-            Pill("운전자", Palette.accent, Palette.accentSoft)
+            Box(
+                Modifier.clip(RoundedCornerShape(50)).background(Palette.accentSoft)
+                    .clickable(enabled = canAsk) { picking = !picking }.padding(horizontal = 18.dp, vertical = 8.dp),
+            ) { Text(user?.label ?: "운전자", color = Palette.accent, fontSize = 18.sp, fontWeight = FontWeight.Medium) }
         }
         when {
             driving -> DrivingCard(vehicle, running!!)
-            gap != null && canAsk -> GapCard(gap, vehicle)
-            else -> WaitingCard(trips, onReport)
+            picking && canAsk -> ProfilePicker(profiles, userId) { picking = false }
+            savePrompt != null && canAsk -> SavePlaceCard(savePrompt)
+            question != null && canAsk -> QuestionCard(question)
+            gap != null && canAsk -> GapCard(gap)
+            else -> WaitingCard(trips, onReport, onSettings)
         }
     }
 }
@@ -123,9 +163,64 @@ private fun DrivingCard(vehicle: VehicleState, running: Trip) {
     }
 }
 
+/** 주차 후 목적 질문. 일반업무를 누르면 메모 칩을 고른다. */
 @Composable
-private fun GapCard(gap: Trip, vehicle: VehicleState) {
-    var choosing by remember { mutableStateOf(false) }
+private fun QuestionCard(trip: Trip) {
+    var memo by remember(trip.id) { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Pill("● 주차 완료", Palette.accent, Palette.accentSoft)
+        Text("${kmShort(trip.distanceTenths)}킬로미터 운행했어요.\n업무 목적인가요?", color = Palette.text, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+        Text(routeText(trip), color = Palette.dim, fontSize = 20.sp)
+        if (!memo) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                BigButton("일반업무", primary = true) { memo = true }
+                BigButton("출퇴근") { AutoLogRuntime.answer(trip.id, Category.COMMUTE) }
+                BigButton("개인 용무") { AutoLogRuntime.answer(trip.id, Category.PRIVATE) }
+                BigButton("나중에") { AutoLogRuntime.dismissGap(trip.id) }
+            }
+        } else {
+            Text("메모를 고르세요 (건너뛸 수 있어요)", color = Palette.text, fontSize = 22.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MEMO_CHIPS.forEach { m -> BigButton(m) { AutoLogRuntime.answer(trip.id, Category.BUSINESS, m) } }
+            }
+            BigButton("건너뛰기", primary = true) { AutoLogRuntime.answer(trip.id, Category.BUSINESS) }
+        }
+    }
+}
+
+private fun routeText(t: Trip): String {
+    val from = t.startPlace.ifBlank { "미등록 위치" }
+    val to = t.endPlace.ifBlank { "미등록 위치" }
+    return "$from → $to"
+}
+
+@Composable
+private fun SavePlaceCard(p: SavePlacePrompt) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Pill("● 새 장소", Palette.accent, Palette.accentSoft)
+        Text("이 위치를 거래처로 저장할까요?", color = Palette.text, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+        Text("저장하면 다음부터 여기에 도착하면 자동으로 일반업무로 분류돼요", color = Palette.dim, fontSize = 20.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            BigButton("저장", primary = true) { AutoLogRuntime.saveClientPlace(p) }
+            BigButton("저장 안 함") { AutoLogRuntime.skipSavePlace() }
+        }
+    }
+}
+
+@Composable
+private fun ProfilePicker(profiles: List<Profile>, userId: Long, onDone: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("누가 운전하나요?", color = Palette.text, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+        Text("정차 중에만 바꿀 수 있어요", color = Palette.dim, fontSize = 18.sp)
+        profiles.forEach { p ->
+            BigButton(p.label, primary = p.id == userId) { AutoLogRuntime.selectUser(p.id); onDone() }
+        }
+    }
+}
+
+@Composable
+private fun GapCard(gap: Trip) {
+    var choosing by remember(gap.id) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Pill("● 빈 구간 발견", Palette.amber, Palette.amberSoft)
         Text("앱이 꺼져 있던 동안 ${kmShort(gap.distanceTenths)}km를 달렸어요", color = Palette.text, fontSize = 34.sp, fontWeight = FontWeight.Bold)
@@ -150,7 +245,7 @@ private fun GapCard(gap: Trip, vehicle: VehicleState) {
 }
 
 @Composable
-private fun WaitingCard(trips: List<Trip>, onReport: () -> Unit) {
+private fun WaitingCard(trips: List<Trip>, onReport: () -> Unit, onSettings: () -> Unit) {
     val last = trips.lastOrNull { it.status == TripStatus.DONE }
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Text("오늘도 운행기록부는\n차가 대신 씁니다", color = Palette.text, fontSize = 38.sp, fontWeight = FontWeight.Bold)
@@ -166,21 +261,30 @@ private fun WaitingCard(trips: List<Trip>, onReport: () -> Unit) {
                         "${commas(last.startTenths / 10)} → ${commas((last.endTenths ?: last.startTenths) / 10)}",
                         color = Palette.text, fontSize = 32.sp, fontWeight = FontWeight.Bold,
                     )
-                    Text(categoryLabel(last.category) + if (last.kind == TripKind.GAP) " · 빈 구간" else "", color = Palette.dim, fontSize = 18.sp)
+                    val tag = categoryLabel(last.category) + (if (last.kind == TripKind.GAP) " · 빈 구간" else "") +
+                        (if (last.note.isNotBlank() && last.kind == TripKind.NORMAL) " · ${last.note}" else "")
+                    Text(tag, color = Palette.dim, fontSize = 18.sp)
                 }
                 Text("${kmShort(last.distanceTenths)} km", color = Palette.text, fontSize = 44.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.weight(1f, fill = false))
-        BigButton("월간 리포트", primary = true, onClick = onReport)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            BigButton("월간 리포트", primary = true, onClick = onReport)
+            BigButton("설정", onClick = onSettings)
+        }
     }
 }
 
 // ---------------------------------------------------------------- 오른쪽: 차가 아는 숫자
 
 @Composable
-private fun CarNumbersPanel(vehicle: VehicleState, trips: List<Trip>, modifier: Modifier) {
+private fun CarNumbersPanel(vehicle: VehicleState, trips: List<Trip>, places: List<Place>, fix: Fix?, modifier: Modifier) {
     val last = trips.lastOrNull { it.status == TripStatus.DONE }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
+    val lost = isLost(fix, now)
+
     Column(
         modifier.clip(RoundedCornerShape(28.dp)).background(Palette.card)
             .border(BorderStroke(1.dp, Palette.cardLine), RoundedCornerShape(28.dp)).padding(28.dp),
@@ -219,6 +323,18 @@ private fun CarNumbersPanel(vehicle: VehicleState, trips: List<Trip>, modifier: 
                 Modifier.weight(1f),
             )
         }
+        // 위치 상태: 마지막 수신이 10초 넘게 없으면 '끊김'. 끊겨도 마지막 위치로 장소를 판정한다.
+        val placeName = fix?.let { findPlace(it.lat, it.lon, places)?.name ?: "미등록 위치" }
+        StatBox(
+            "위치 상태",
+            when {
+                fix == null -> "● 수신 대기 중"
+                lost -> "● 끊김 · 마지막 위치 ${placeName ?: ""}"
+                else -> "● 정상 · ${placeName ?: ""}"
+            },
+            Modifier.fillMaxWidth(),
+            highlight = lost,
+        )
     }
 }
 
@@ -258,7 +374,7 @@ private fun StatBox(label: String, value: String, modifier: Modifier, highlight:
 // ---------------------------------------------------------------- 아래: 운행기록부
 
 @Composable
-private fun LogbookStrip(trips: List<Trip>) {
+private fun LogbookStrip(trips: List<Trip>, profiles: List<Profile>) {
     val rows = logbookRows(trips).takeLast(6)
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -276,12 +392,15 @@ private fun LogbookStrip(trips: List<Trip>) {
                 LogRow(List(8) { "" })
             } else {
                 val t = r.trip
+                val who = profiles.firstOrNull { it.id == t.userId }?.name ?: "운전자"
+                val remark = listOf(categoryLabel(t.category), t.note.ifBlank { if (t.kind == TripKind.NORMAL) routeText(t) else "" })
+                    .filter { it.isNotBlank() }.joinToString(" · ")
                 LogRow(
                     listOf(
-                        dateText(t.startTimeMs), "운전자", commas(r.beforeKm), commas(r.afterKm), r.distanceKm.toString(),
+                        dateText(t.startTimeMs), who, commas(r.beforeKm), commas(r.afterKm), r.distanceKm.toString(),
                         if (t.category == Category.COMMUTE) r.distanceKm.toString() else "",
                         if (t.category == Category.BUSINESS) r.distanceKm.toString() else "",
-                        listOf(categoryLabel(t.category), t.note).filter { it.isNotBlank() }.joinToString(" · "),
+                        remark,
                     ),
                 )
             }
@@ -301,7 +420,7 @@ private fun LogRow(cells: List<String>, header: Boolean = false) {
     ) {
         cells.forEachIndexed { i, c ->
             Text(
-                c, color = if (header) Palette.text else Palette.text,
+                c, color = Palette.text,
                 fontSize = if (header) 16.sp else 19.sp, fontWeight = if (header) FontWeight.Bold else FontWeight.Normal,
                 textAlign = if (i in 2..6) TextAlign.End else TextAlign.Start, maxLines = 1,
                 modifier = Modifier.weight(colWeights[i]).padding(horizontal = 12.dp),

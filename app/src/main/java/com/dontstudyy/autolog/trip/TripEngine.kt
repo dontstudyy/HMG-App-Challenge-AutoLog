@@ -15,16 +15,19 @@ class TripEngine(
     private val store: TripStore,
     private val settleMs: Long = SETTLE_MS,
 ) {
-    private class Pending(val endTimeMs: Long, var tenths: Int)
+    private class Pending(val endTimeMs: Long, var tenths: Int, val where: Where)
 
     private var pending: Pending? = null
+
+    /** 일반 운행이 정상 종료될 때 불린다(버려진 운행·빈 구간 제외). 분류를 붙이는 용도. */
+    var onTripDone: ((Trip) -> Unit)? = null
 
     /** 마지막으로 받은 누적거리(0.1km). 화면 표시용. */
     var currentTenths: Int? = null
         private set
 
     /** 서비스(앱) 시작. 빈 구간 처리와 기준값 저장. */
-    fun onServiceStart(nowMs: Long, odoTenths: Int, isPark: Boolean, userId: Long = 0) {
+    fun onServiceStart(nowMs: Long, odoTenths: Int, isPark: Boolean, userId: Long = 0, where: Where = Where()) {
         currentTenths = odoTenths
         pending = null
         val running = store.inProgress()
@@ -35,20 +38,20 @@ class TripEngine(
         } else {
             reconcile(nowMs, odoTenths)
         }
-        if (!isPark) startTrip(nowMs, odoTenths, userId)
+        if (!isPark) startTrip(nowMs, odoTenths, userId, where)
     }
 
     /** 기어 변화. [odoTenths]는 이벤트를 받은 순간 읽은 누적거리. */
-    fun onGearChanged(nowMs: Long, isPark: Boolean, odoTenths: Int, userId: Long = 0) {
+    fun onGearChanged(nowMs: Long, isPark: Boolean, odoTenths: Int, userId: Long = 0, where: Where = Where()) {
         tick(nowMs)
         currentTenths = odoTenths
         if (isPark) {
-            if (store.inProgress() != null && pending == null) pending = Pending(nowMs, odoTenths)
+            if (store.inProgress() != null && pending == null) pending = Pending(nowMs, odoTenths, where)
         } else {
             finalizePending()
             if (store.inProgress() == null) {
                 reconcile(nowMs, odoTenths)
-                startTrip(nowMs, odoTenths, userId)
+                startTrip(nowMs, odoTenths, userId, where)
             }
         }
     }
@@ -74,8 +77,8 @@ class TripEngine(
         store.update(t.copy(category = category, note = note ?: t.note))
     }
 
-    private fun startTrip(nowMs: Long, odoTenths: Int, userId: Long) {
-        store.insert(Trip(startTimeMs = nowMs, userId = userId, startTenths = odoTenths))
+    private fun startTrip(nowMs: Long, odoTenths: Int, userId: Long, where: Where) {
+        store.insert(Trip(startTimeMs = nowMs, userId = userId, startTenths = odoTenths, startPlace = where.place))
     }
 
     private fun finalizePending() {
@@ -86,8 +89,13 @@ class TripEngine(
             store.delete(t.id) // 0.1km 미만은 버린다. lastEnd는 그대로(= 이 운행의 주행 전).
             return
         }
-        store.update(t.copy(endTimeMs = p.endTimeMs, endTenths = p.tenths, status = TripStatus.DONE))
+        val done = t.copy(
+            endTimeMs = p.endTimeMs, endTenths = p.tenths, status = TripStatus.DONE,
+            endPlace = p.where.place, endLat = p.where.lat, endLon = p.where.lon,
+        )
+        store.update(done)
         store.lastEndTenths = p.tenths
+        onTripDone?.invoke(done)
     }
 
     /** 앱이 주행 도중 죽은 운행을 '주행 전 ~ 지금' 빈 구간으로 바꾼다. */
