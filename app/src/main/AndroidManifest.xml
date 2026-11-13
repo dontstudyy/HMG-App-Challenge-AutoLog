@@ -30,6 +30,11 @@
         android:theme="@style/Theme.AutoLog">
         <uses-library android:name="android.car" android:required="false" />
 
+        <service
+            android:name=".service.RecordingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
