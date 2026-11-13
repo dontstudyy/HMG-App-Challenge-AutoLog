@@ -1,0 +1,548 @@
+{
+ "meta": {
+  "fps": 30,
+  "duration": 89,
+  "width": 1920,
+  "height": 1080,
+  "plate": "12가 3456",
+  "month": "12월"
+ },
+ "fuel": {
+  "lPer100km": 7.1,
+  "wonPerL": 1650,
+  "shown": 18200
+ },
+ "toll": {
+  "won": 2600,
+  "trip": 2
+ },
+ "expect": {
+  "beforeTotal": 123,
+  "beforeBiz": 101,
+  "beforeRatio": 82.1,
+  "afterTotal": 155,
+  "afterBiz": 133,
+  "afterRatio": 85.8,
+  "commute": 38,
+  "bizBefore": 63,
+  "bizAfter": 95,
+  "gap": 32
+ },
+ "trips": [
+  {
+   "no": 1,
+   "date": "12.1(화)",
+   "user": "영업팀 김대리",
+   "before": 12321,
+   "after": 12340,
+   "dist": 19,
+   "cls": "출퇴근",
+   "note": "출근 (회사 지하주차장 도착)",
+   "dAt": 17.0,
+   "roll0": 18.0,
+   "roll1": 24.5,
+   "pAt": 25.0,
+   "rowAt": 27.0,
+   "from": "집",
+   "to": "회사 지하주차장",
+   "route": [
+    [
+     150,
+     380
+    ],
+    [
+     150,
+     290
+    ],
+    [
+     520,
+     290
+    ],
+    [
+     520,
+     110
+    ],
+    [
+     680,
+     110
+    ]
+   ],
+   "la": 36,
+   "lb": -36
+  },
+  {
+   "no": 2,
+   "date": "12.1(화)",
+   "user": "영업팀 김대리",
+   "before": 12340,
+   "after": 12358,
+   "dist": 18,
+   "cls": "일반업무",
+   "note": "거래처 방문 (음성 답변)",
+   "dAt": 32.0,
+   "roll0": 32.2,
+   "roll1": 34.9,
+   "pAt": 35.1,
+   "rowAt": 39.8,
+   "from": "회사",
+   "to": "거래처",
+   "route": [
+    [
+     680,
+     110
+    ],
+    [
+     850,
+     110
+    ],
+    [
+     850,
+     290
+    ]
+   ],
+   "la": -36,
+   "lb": 36
+  },
+  {
+   "no": 3,
+   "date": "12.1(화)",
+   "user": "영업팀 박과장",
+   "before": 12358,
+   "after": 12403,
+   "dist": 45,
+   "cls": "일반업무",
+   "note": "고객사 회의",
+   "dAt": 44.1,
+   "roll0": 44.3,
+   "roll1": 45.7,
+   "pAt": 45.8,
+   "rowAt": 46.0,
+   "from": "거래처",
+   "to": "고객사",
+   "route": [
+    [
+     850,
+     290
+    ],
+    [
+     330,
+     290
+    ],
+    [
+     330,
+     110
+    ]
+   ],
+   "la": 36,
+   "lb": -36
+  },
+  {
+   "no": 4,
+   "date": "12.1(화)",
+   "user": "영업팀 김대리",
+   "before": 12403,
+   "after": 12422,
+   "dist": 19,
+   "cls": "출퇴근",
+   "note": "퇴근",
+   "dAt": 46.3,
+   "roll0": 46.4,
+   "roll1": 47.2,
+   "pAt": 47.3,
+   "rowAt": 47.4,
+   "from": "고객사",
+   "to": "집",
+   "route": [
+    [
+     330,
+     110
+    ],
+    [
+     150,
+     110
+    ],
+    [
+     150,
+     380
+    ]
+   ],
+   "la": -36,
+   "lb": 36
+  },
+  {
+   "no": 5,
+   "date": "12.6(토)",
+   "user": "영업팀 김대리",
+   "before": 12422,
+   "after": 12444,
+   "dist": 22,
+   "cls": "비업무",
+   "note": "개인 용무 (음성 답변)",
+   "dAt": 47.7,
+   "roll0": 47.8,
+   "roll1": 48.5,
+   "pAt": 48.6,
+   "rowAt": 49.3,
+   "from": "집",
+   "to": "개인 용무",
+   "route": [
+    [
+     150,
+     380
+    ],
+    [
+     520,
+     380
+    ],
+    [
+     520,
+     200
+    ]
+   ],
+   "la": 36,
+   "lb": -36
+  },
+  {
+   "no": 6,
+   "date": "12.8(월)",
+   "user": "영업팀 김대리",
+   "before": 12444,
+   "after": 12476,
+   "dist": 32,
+   "cls": "미분류",
+   "fixCls": "일반업무",
+   "note": "앱이 꺼져 있던 구간, 나중에 정리",
+   "dAt": 51.2,
+   "roll0": 51.5,
+   "roll1": 55.2,
+   "pAt": 55.5,
+   "rowAt": 59.5
+  }
+ ],
+ "titleRoll": {
+  "t0": 0.5,
+  "t1": 3.2,
+  "from": 12310,
+  "to": 12321
+ },
+ "dates": [
+  {
+   "t": 0,
+   "d": "12.1(화)"
+  },
+  {
+   "t": 47.5,
+   "d": "12.6(토)"
+  },
+  {
+   "t": 50.3,
+   "d": "12.8(월)"
+  },
+  {
+   "t": 62,
+   "d": "12월 말"
+  }
+ ],
+ "users": [
+  {
+   "t": 15.5,
+   "name": "영업팀 김대리",
+   "how": "좌석 위치로 자동 선택"
+  },
+  {
+   "t": 43.5,
+   "name": "영업팀 박과장",
+   "how": "프로필 한 번 터치"
+  },
+  {
+   "t": 46.2,
+   "name": "영업팀 김대리",
+   "how": "좌석 위치로 자동 추천"
+  }
+ ],
+ "scenes": [
+  {
+   "id": "title",
+   "start": 0,
+   "end": 5,
+   "caption": "운행이 끝나면 운행기록부도 끝나 있게"
+  },
+  {
+   "id": "problem",
+   "start": 5,
+   "end": 13,
+   "caption": "서식이 요구하는 건 GPS가 아니라 계기판 거리"
+  },
+  {
+   "id": "depart",
+   "start": 13,
+   "end": 22,
+   "caption": "시동 걸고 출발하면 기록 시작, 누를 것은 없어요"
+  },
+  {
+   "id": "arrive",
+   "start": 22,
+   "end": 30,
+   "caption": "지하에서도 거리는 계기판 값 그대로"
+  },
+  {
+   "id": "client",
+   "start": 30,
+   "end": 42,
+   "caption": "확실하지 않을 때만, 주차한 뒤에 물어봐요"
+  },
+  {
+   "id": "shared",
+   "start": 42,
+   "end": 50,
+   "caption": "같은 차를 여러 명이 써도 사람별로"
+  },
+  {
+   "id": "gap",
+   "start": 50,
+   "end": 62,
+   "caption": "앱이 꺼져 있어도 거리는 사라지지 않아요"
+  },
+  {
+   "id": "report",
+   "start": 62,
+   "end": 74,
+   "caption": "월말엔 서식 그대로 내보내기"
+  },
+  {
+   "id": "diff",
+   "start": 74,
+   "end": 84,
+   "caption": "폰이 아니라 차라서 가능한 기록"
+  },
+  {
+   "id": "end",
+   "start": 84,
+   "end": 89,
+   "caption": "Pleos Connect로 만든 업무 운행 자동 기록"
+  }
+ ],
+ "T": {
+  "form_hl": 7.2,
+  "gps_cut": 9.5,
+  "msg_key": 11.0,
+  "main_in": 13.0,
+  "seat_detect": 14.5,
+  "profile_auto": 15.5,
+  "gps_lost": 22.9,
+  "t1_card": 26.0,
+  "navi_card": 30.3,
+  "gps_back": 30.6,
+  "ask": 35.7,
+  "answer": 38.0,
+  "classified": 39.2,
+  "profile_screen": 42.3,
+  "tap_park": 43.5,
+  "answer5": 48.7,
+  "app_off": 50.5,
+  "app_on": 56.0,
+  "gap_card": 57.0,
+  "tap_later": 59.0,
+  "report_in": 62.3,
+  "tap_fix": 65.0,
+  "row6_fix": 65.4,
+  "bar0": 65.5,
+  "bar1": 67.0,
+  "tap_export": 68.2,
+  "export_in": 68.7,
+  "diff1": 75.0,
+  "diff2": 77.0,
+  "diff3": 79.0,
+  "end_in": 84.0,
+  "sdk_in": 85.2
+ },
+ "sounds": [
+  {
+   "at": 3.3,
+   "type": "chime_soft"
+  },
+  {
+   "at": "form_hl",
+   "type": "tick"
+  },
+  {
+   "at": "gps_cut",
+   "type": "warn"
+  },
+  {
+   "at": "profile_auto",
+   "type": "tick"
+  },
+  {
+   "at": "gps_lost",
+   "type": "warn"
+  },
+  {
+   "at": "t1_card",
+   "type": "chime_soft"
+  },
+  {
+   "at": "navi_card",
+   "type": "tick"
+  },
+  {
+   "at": "ask",
+   "type": "ask"
+  },
+  {
+   "at": "answer",
+   "type": "tick"
+  },
+  {
+   "at": "classified",
+   "type": "chime_soft"
+  },
+  {
+   "at": "tap_park",
+   "type": "tap"
+  },
+  {
+   "at": "answer5",
+   "type": "tick"
+  },
+  {
+   "at": "app_off",
+   "type": "off"
+  },
+  {
+   "at": "app_on",
+   "type": "on"
+  },
+  {
+   "at": "gap_card",
+   "type": "ask"
+  },
+  {
+   "at": "tap_later",
+   "type": "tap"
+  },
+  {
+   "at": "tap_fix",
+   "type": "tap"
+  },
+  {
+   "at": "row6_fix",
+   "type": "save"
+  },
+  {
+   "at": "bar1",
+   "type": "chime_soft"
+  },
+  {
+   "at": "tap_export",
+   "type": "tap"
+  },
+  {
+   "at": "export_in",
+   "type": "save"
+  },
+  {
+   "at": "diff1",
+   "type": "tick"
+  },
+  {
+   "at": "diff2",
+   "type": "tick"
+  },
+  {
+   "at": "diff3",
+   "type": "tick"
+  },
+  {
+   "at": "end_in",
+   "type": "chime_soft"
+  }
+ ],
+ "captions": [
+  {
+   "start": 0,
+   "end": 5,
+   "text": "운행이 끝나면 운행기록부도 끝나 있게"
+  },
+  {
+   "start": 5,
+   "end": 9.2,
+   "text": "월말마다 김대리는 한 달 치 운행기록부를 채워야 합니다"
+  },
+  {
+   "start": 9.2,
+   "end": 13,
+   "text": "폰 앱은 지하주차장에서 기록이 끊기고, 거리도 GPS로 추정합니다"
+  },
+  {
+   "start": 13,
+   "end": 17.5,
+   "text": "아침 출근길, 김대리는 그냥 시동을 겁니다"
+  },
+  {
+   "start": 17.5,
+   "end": 22,
+   "text": "누를 것은 없어요. 출발하면 차가 기록을 시작합니다"
+  },
+  {
+   "start": 22,
+   "end": 26,
+   "text": "회사 지하주차장. GPS는 끊겼지만 계기판은 그대로"
+  },
+  {
+   "start": 26,
+   "end": 30,
+   "text": "주차하자 운행기록부 한 줄 완성. 김대리가 한 일은 없습니다"
+  },
+  {
+   "start": 30,
+   "end": 35.4,
+   "text": "다음은 거래처. 길안내 운행은 예상 통행료까지 기록됩니다"
+  },
+  {
+   "start": 35.4,
+   "end": 42,
+   "text": "확실하지 않을 때만, 주차한 뒤에 한마디로 물어봅니다"
+  },
+  {
+   "start": 42,
+   "end": 46.2,
+   "text": "같은 차를 박과장이 탈 땐, 정차 중에 프로필 한 번만"
+  },
+  {
+   "start": 46.2,
+   "end": 50,
+   "text": "퇴근도, 주말 개인 용무도 사람별·목적별로 나뉩니다"
+  },
+  {
+   "start": 50,
+   "end": 56,
+   "text": "월요일, 앱이 꺼진 채로 달렸습니다"
+  },
+  {
+   "start": 56,
+   "end": 62,
+   "text": "그래도 계기판 숫자가 이어지지 않으니, 빠진 32km를 찾아냅니다"
+  },
+  {
+   "start": 62,
+   "end": 68,
+   "text": "다시 월말. 김대리가 할 일은 미분류 한 건 정리뿐입니다"
+  },
+  {
+   "start": 68,
+   "end": 74,
+   "text": "서식 그대로 내보내면 끝. 기억으로 채울 칸이 없습니다"
+  },
+  {
+   "start": 74,
+   "end": 84,
+   "text": "폰이 아니라 차라서 가능한 기록"
+  },
+  {
+   "start": 84,
+   "end": 89,
+   "text": "Pleos Connect로 만든 업무 운행 자동 기록"
+  }
+ ]
+}
