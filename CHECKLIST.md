@@ -91,15 +91,16 @@
 ## 단계 5. 음성·내비·내보내기
 
 통과 기준: adb intent로 목적이 기록됨. 꺼낸 엑셀의 ⑪⑫⑬이 155 / 133 / 85.8%.
+**결과: adb intent 기록 통과. 꺼낸 엑셀의 ⑪⑫⑬은 에뮬레이터 값 2 / 2 / 100.0%로 열렸고, 155 / 133 / 85.8%는 단위 테스트로만 확인(화면 미확인).**
 
-- [ ] `voice`: TTS (실패해도 무시), STT 키워드 매칭 (보조)
-- [ ] Gleo: `LOG_TRIP_PURPOSE`, `START_PRIVATE_TRIP`, `GET_BUSINESS_RATIO` (`assets/schema.json` + intent-filter)
-- [ ] `navi`: 길안내 시작 시 목적지 이름·예상 통행료를 현재 운행에 연결
-- [ ] 예상 유류비 (연비 읽기 시도 → 실패 시 입력값), 예상 통행료
-- [ ] 엑셀 내보내기 (국세청 서식 원본 확인 후 칸 구성)
-- [ ] PDF 내보내기 (`PdfDocument`, 한글 글꼴 확인)
-- [ ] 내보내기 미리보기, 미분류 경고
-- [ ] `adb pull`로 파일 꺼내 확인
+- [x] `voice`: TTS (실패해도 무시), STT 키워드 매칭 (보조) — TTS는 첫 호출만 재생 이벤트 확인, STT는 PCM으로 부분 결과까지 확인(키워드 → 답은 단위 테스트)
+- [x] Gleo: `LOG_TRIP_PURPOSE`, `START_PRIVATE_TRIP`, `GET_BUSINESS_RATIO` (`assets/schema.json` + intent-filter) — adb intent로 세 가지 모두 확인
+- [x] `navi`: 길안내 시작 시 목적지 이름·예상 통행료를 현재 운행에 연결 — 통행료 700원·목적지 확인. 목적지 이름으로 분류하는 규칙은 단위 테스트만
+- [x] 예상 유류비 (입력 연비·단가 기준, 차량에서 연비를 읽는 시도는 하지 않음), 예상 통행료
+- [x] 엑셀 내보내기 (제3자 서식 사본 기준 칸 구성 — 국세청 원본과 대조 필요)
+- [x] PDF 내보내기 (`PdfDocument`, 한글 글꼴 확인 — 렌더링해서 한글 정상)
+- [x] 내보내기 미리보기, 미분류 경고
+- [~] `adb pull`로 파일 꺼내 확인 — `adb pull`은 권한으로 막혀 `content read`로 꺼냄(README 참고)
 
 ## 단계 6. 제출 준비
 

@@ -73,8 +73,8 @@ fun ExportScreen(onBack: () -> Unit) {
         } else {
             val r = result!!
             Text("저장했어요", color = Palette.green, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text("엑셀  ${r.xlsx.absolutePath}", color = Palette.dim, fontSize = 16.sp)
-            Text("PDF   ${r.pdf.absolutePath}", color = Palette.dim, fontSize = 16.sp)
+            Text("엑셀  ${r.xlsxPath}", color = Palette.dim, fontSize = 16.sp)
+            Text("PDF   ${r.pdfPath}", color = Palette.dim, fontSize = 16.sp)
             Preview(r)
         }
     }

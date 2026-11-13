@@ -74,6 +74,29 @@
 - 화면 키보드(한글 포함)가 뜨고, `adb shell input text`는 영문만 되며 글자가 빠질 수 있다.
 - DB 스키마를 바꾸면 기록을 지우고 새로 만든다(`fallbackToDestructiveMigration`). 제출 전에 확정한다.
 
+### 단계 5 에뮬레이터 확인 (음성·내비·내보내기)
+
+운행마다 0.3km로 올려 확인했다(1.8 → 3.0km).
+
+- **Gleo(adb intent)** — 세 명령 모두 동작. 공백이 든 값은 기기 쉘 안에서 따옴표를 써야 한다.
+  - `adb shell "am start -a LOG_TRIP_PURPOSE --es purpose '거래처 미팅'"` → 가장 최근 미분류 운행이 `일반업무 · 거래처 미팅`으로 바뀜(그 운행의 도착이 미등록 위치면 거래처 저장 질문이 이어서 뜸).
+  - `adb shell "am start -a START_PRIVATE_TRIP"` → 다음 운행이 질문 없이 `개인 용무`로 기록됨.
+  - `adb shell "am start -a GET_BUSINESS_RATIO"` → 토스트와 TTS로 "이번 달 업무사용비율은 50.0퍼센트예요".
+  - `assets/schema.json`과 매니페스트 intent-filter가 같은 세 이름을 선언한다.
+- **⑦ TTS** — 질문 카드가 뜰 때 문장을 읽도록 호출한다. 호출마다 새로 만들어도(`init ok` → `speak` 호출까지는 매번 성공) **재생 시작 이벤트(`onStart`)는 앱을 새로 설치한 뒤 첫 호출에서만 확인됐다.** 2번째 이후 호출은 `onStart`가 오지 않았다(5회 중 1회 확인). 소리는 보조이고 질문은 항상 화면 카드로 뜬다(설계서 B2 유지).
+- **⑧ STT** — 마이크 입력은 에뮬레이터가 무음이라 결과가 오지 않는다. probe의 PCM 음성 파일을 보내면 부분 결과가 실제로 온다(`내일` → `내일 오후` → `내일 오후 3` 뒤 `ON_DEVICE_ENGINE_ERROR`, 마지막 결과는 빈 문자열). 이 음성에는 목적 키워드가 없어 답으로 이어지지는 않았다. 키워드 해석은 단위 테스트(`KeywordsTest`)로 확인했고, 인식 → 답 기록의 끝까지 이어지는 시연은 못 했다.
+- **⑥ 길안내** — 경로를 요청하면(약 16초 걸림) `onRouteStarted name=Gangnam toll=700`이 온다. 길안내 중 운행을 하면 그 운행에 통행료 700원과 목적지 이름이 붙는다(리포트 '예상 통행료 700원').
+  - **에뮬레이터는 `onRouteStarted` 직후(4ms 뒤)에 `onRouteEnded`를 보낸다.** 이걸 '길안내 종료'로 처리하면 목적지·통행료가 지워지므로 무시하고, `onRouteCancelled`·`onDestinationArrived`에서만 지운다.
+  - `onDestinationInfo`는 경로 취소 직후 `name=""`, `toll=0`으로도 온다. 이름이 빈 값이면 무시한다.
+  - 경로 요청(`requestRoute`)은 `pleos.car.permission.NAVI_ROUTE_SEARCH`가 필요해 debug 빌드에만 선언했다. 앱 본체는 요청하지 않고 이벤트만 받는다.
+  - 길안내 목적지 이름이 등록 장소 이름과 같을 때 분류에 쓰는 규칙은 단위 테스트로만 확인했다(실험의 `Gangnam`은 등록 장소가 아님).
+- **유류비·통행료** — 리포트에 '예상 유류비'(입력 연비·단가 기준, 0.6km에서 100원)와 '예상 통행료'(700원)가 나온다. 연비를 차량에서 읽는 시도는 하지 않는다(결과표 R9 미지원).
+- **내보내기** — 미분류가 남아 있으면 "미분류 2건이 남아 있어요" 경고와 `그래도 내보내기` / `정리하러 가기`가 뜬다. 정리 후 내보내면 엑셀·PDF가 저장되고 서식 칸 그대로의 미리보기와 ⑪⑫⑬이 나온다.
+  - 저장 위치: 앱 전용 폴더(`Android/data/<패키지>/files/exports`)와 공용 `Download/AutoLog/`(MediaStore). **앱 전용 폴더는 `adb pull`·`run-as`로 읽을 수 없고(권한 거부), `Download/AutoLog`도 `adb pull`이 사용자 10 저장소 권한 때문에 막힌다.** 꺼내는 방법: `adb shell "content query --user 10 --uri content://media/external/file --projection _id:_display_name --where \"_display_name like 'logbook%'\""`로 `_id`를 찾고 `adb exec-out "content read --user 10 --uri content://media/external/file/<id>" > logbook.xlsx`.
+  - 꺼낸 엑셀을 openpyxl로 열어 확인: 시트 `운행기록부`, 서식 칸 이름(①②③…⑬), ⑤⑥⑦⑧⑨는 숫자 셀, ⑬은 `100.0`에 `0.0"%"` 서식. PDF는 PyMuPDF로 렌더링해 한글·표·⑪⑫⑬이 맞게 그려지는 것을 확인했다.
+  - 에뮬레이터 값은 2 / 2 / 100.0%(운행이 0.3km씩이라 정수 km로 버림되어 작다). 155 / 133 / 85.8%는 단위 테스트(`CostAndExportTest`)로 확인했고 화면에서는 못 봤다.
+  - 서식 칸 구성은 제3자가 올린 2016년 서식 엑셀 사본 기준이다(`.private/운행기록부_서식_칸구성.md`). 국세청 원본과 대조해야 한다.
+
 ### 단계 0 ⑩ 화면 해상도
 
 - `wm size` 2560x1440, 밀도 160dpi. 앱 창은 홈 화면 안에서 약 1682x1210px(853,90 ~ 2535,1300)로 열렸다.
@@ -88,3 +111,4 @@
 | 2026-11-13 | 1.9 → 2.7 km (시연 6번: 강제 종료 후 주행) | 2.7 km |
 | 2026-11-13 | 2.7 → 3.0 km (지연 측정) | 3.0 km |
 | 2026-11-13 | (에뮬레이터가 재시작되어 0.0km에서 다시 시작) 0 → 1.8 km (단계 4 분류·질문 확인, 운행마다 0.3km) | 1.8 km |
+| 2026-11-14 | 1.8 → 3.0 km (단계 5 Gleo·길안내·내보내기 확인, 운행마다 0.3km) | 3.0 km |
