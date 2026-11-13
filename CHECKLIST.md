@@ -107,11 +107,11 @@
 통과 기준: 깨끗한 AVD에 APK를 설치해 시연 스크립트가 처음부터 끝까지 통과.
 
 - [ ] A5 결정 반영 (시연용 AVD 준비)
-- [ ] `tools/demo.py`: 목업 6건을 Virtual Console REST로 재현 (시작 누적거리를 인자로)
-- [ ] release 서명 설정 (키스토어는 저장소 밖에 보관)
-- [ ] release APK 빌드, 에뮬레이터 설치·실행 확인 (최적화 영향 점검)
-- [ ] `.gitignore`에 `!apk/*.apk` 예외 추가, `apk/정통윤_AutoLog_release.apk` 배치
-- [ ] README: 앱 이름·한 줄 소개, 실행 방법, 테스트 환경·필요 설정, APK 위치, 검증 기록
+- [x] `tools/demo.py`: 목업 6건을 Virtual Console REST로 재현 (시작 누적거리를 인자로) — dry-run 기본, 큰 주행거리 증가는 명시 허용 필요, 현재 값 > 시작값이면 거부. 축소(배율 0.01) 스모크 테스트로 끝까지 실행 확인. 12,321km 실제 시연은 A5 결정 후
+- [x] release 서명 설정 (키스토어 `C:\pleosEnv\autolog-keys\`, `keystore.properties`는 gitignore. 없으면 debug 키로 서명)
+- [x] release APK 빌드, 에뮬레이터 설치·실행 확인 (최적화 영향 점검) — R8 때문에 시작 시 크래시 → `kotlin.**` 보존 규칙으로 해결, 최적화 켠 채 동작 확인
+- [x] `.gitignore`에 `!apk/*.apk` 예외 추가, `apk/정통윤_AutoLog_release.apk` 배치
+- [x] README: 앱 이름·한 줄 소개, 실행 방법, 테스트 환경·필요 설정, APK 위치, 검증 기록
 - [ ] 시연 영상 녹화 (앱 + Virtual Console 동시)
   - 결정(2026-11-13): 기어 D 동안 OS가 앱 화면을 가리므로(README 검증 기록), 주행 구간은 "주행 중에는 화면이 잠기고, 서비스가 뒤에서 기록한다"는 자막으로 설명한다. 앱 개발은 바꾸지 않는다.
   - 녹화 때 Virtual Console 화면을 함께 잡아 주행거리가 올라가는 것을 보여 주고, 기어 P 뒤 기록부 한 줄이 채워지는 장면에서 앱 화면을 보여 준다.

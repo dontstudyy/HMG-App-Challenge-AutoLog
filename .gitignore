@@ -9,6 +9,7 @@ captures/
 .externalNativeBuild/
 .cxx/
 *.apk
+!apk/*.apk
 *.aab
 *.ap_
 *.dex

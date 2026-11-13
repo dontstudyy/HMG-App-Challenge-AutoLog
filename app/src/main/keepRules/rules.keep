@@ -10,3 +10,7 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+# R8이 kotlin.collections 클래스를 병합하면서 시작 시 IllegalAccessError로 죽는 문제를 피하기 위해 보존
+-keep class kotlin.** { *; }
+-keep class kotlinx.** { *; }
+-dontwarn kotlin.**
