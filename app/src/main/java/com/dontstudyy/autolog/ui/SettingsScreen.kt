@@ -36,10 +36,11 @@ import com.dontstudyy.autolog.classify.Place
 import com.dontstudyy.autolog.classify.PlaceKind
 import com.dontstudyy.autolog.data.Profile
 import com.dontstudyy.autolog.location.Fix
+import com.dontstudyy.autolog.report.AppSettings
 
-/** 설정: 등록 장소(집·회사·거래처)와 프로필. 차종·연비·단가는 단계 5(유류비)에서 추가한다. */
+/** 설정: 차량·유류비, 등록 장소(집·회사·거래처), 프로필. */
 @Composable
-fun SettingsScreen(places: List<Place>, profiles: List<Profile>, userId: Long, fix: Fix?, onBack: () -> Unit) {
+fun SettingsScreen(places: List<Place>, profiles: List<Profile>, userId: Long, fix: Fix?, settings: AppSettings, onBack: () -> Unit) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -48,6 +49,40 @@ fun SettingsScreen(places: List<Place>, profiles: List<Profile>, userId: Long, f
             BigButton("‹ 뒤로", onClick = onBack)
             Text("설정", color = Palette.text, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         }
+
+        // ---- 차량·유류비 ----
+        Text("차량과 유류비", color = Palette.text, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("차량 정보는 차에서 읽을 수 없어 직접 입력해요. 유류비는 입력한 연비와 단가 기준이에요.", color = Palette.dim, fontSize = 18.sp)
+        var vehicleType by remember(settings) { mutableStateOf(settings.vehicleType) }
+        var plate by remember(settings) { mutableStateOf(settings.plate) }
+        var company by remember(settings) { mutableStateOf(settings.company) }
+        var bizNo by remember(settings) { mutableStateOf(settings.bizNo) }
+        var l100 by remember(settings) { mutableStateOf(settings.litersPer100km.toString()) }
+        var price by remember(settings) { mutableStateOf(settings.wonPerLiter.toString()) }
+        var savedMsg by remember { mutableStateOf("") }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Field(vehicleType, { vehicleType = it }, "차종", 260.dp)
+            Field(plate, { plate = it }, "차량번호", 200.dp)
+            Field(company, { company = it }, "상호명", 260.dp)
+            Field(bizNo, { bizNo = it }, "사업자등록번호", 240.dp)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Field(l100, { l100 = it }, "연비 (100km당 L)", 240.dp)
+            Field(price, { price = it }, "연료 단가 (원/L)", 240.dp)
+            BigButton("저장", primary = true) {
+                AutoLogRuntime.updateSettings(
+                    AppSettings(
+                        vehicleType = vehicleType.trim(), plate = plate.trim(), company = company.trim(), bizNo = bizNo.trim(),
+                        litersPer100km = l100.toDoubleOrNull() ?: settings.litersPer100km,
+                        wonPerLiter = price.toIntOrNull() ?: settings.wonPerLiter,
+                    ),
+                )
+                savedMsg = "저장했어요"
+            }
+            if (savedMsg.isNotBlank()) Text(savedMsg, color = Palette.green, fontSize = 18.sp)
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         // ---- 장소 ----
         Text("등록 장소", color = Palette.text, fontSize = 24.sp, fontWeight = FontWeight.Bold)

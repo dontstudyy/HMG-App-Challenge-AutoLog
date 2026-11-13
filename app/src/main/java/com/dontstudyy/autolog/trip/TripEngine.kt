@@ -72,6 +72,13 @@ class TripEngine(
     /** 대기 중인 종료가 있으면 [tick]을 몇 ms 뒤에 다시 불러야 하는지. 없으면 null. */
     fun msUntilSettle(nowMs: Long): Long? = pending?.let { maxOf(0L, settleMs - (nowMs - it.endTimeMs)) }
 
+    /** 길안내가 시작되면 진행 중인 운행에 목적지 이름과 예상 통행료를 붙인다. 진행 중 운행이 없으면 false. */
+    fun attachNavi(dest: String, tollWon: Int): Boolean {
+        val t = store.inProgress() ?: return false
+        store.update(t.copy(naviDest = dest, tollWon = tollWon))
+        return true
+    }
+
     fun reclassify(tripId: Long, category: Category, note: String? = null) {
         val t = store.all().first { it.id == tripId }
         store.update(t.copy(category = category, note = note ?: t.note))

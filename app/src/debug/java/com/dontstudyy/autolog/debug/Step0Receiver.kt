@@ -22,6 +22,10 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
+import com.dontstudyy.autolog.voice.Listener
+import com.dontstudyy.autolog.voice.Speaker
+import ai.pleos.playground.navi.data.RouteInfo
+import ai.pleos.playground.navi.helper.NaviHelper
 
 /**
  * 단계 0 확인 실험 ③④⑤ (debug 빌드 전용).
@@ -38,6 +42,9 @@ class Step0Receiver : BroadcastReceiver() {
                 "pbrake" -> Exp.pbrake(app)
                 "loc" -> Exp.loc(app)
                 "prox" -> Exp.prox(app, arg)
+                "tts" -> Exp.ttsRepeat(app)
+                "stt" -> Exp.stt(app, arg)
+                "route" -> Exp.route(app, arg)
                 "stop" -> Exp.stop()
                 else -> Exp.log("unknown id $id")
             }
@@ -144,6 +151,30 @@ private object Exp {
             override fun onTransition(p0: ProximityAlertEvent) { log("⑤ PROX EVT id=${p0.alertId} transition=${p0.transition}") }
             override fun onError(p0: Exception) { log("⑤ PROX onError $p0") }
         })
+    }
+
+    // ---- ⑦ TTS 반복 호출: 호출마다 새로 만들어 3번 재생되는지 ----
+    fun ttsRepeat(ctx: Context) {
+        val h = android.os.Handler(android.os.Looper.getMainLooper())
+        for (i in 0 until 3) h.postDelayed({ Speaker.speak(ctx, "테스트 ${i + 1}번 입니다") }, i * 4000L)
+        log("⑦ TTS 3회 예약 (4초 간격). 로그 AUTOLOG_VOICE 확인")
+    }
+
+    // ---- ⑧ STT 부분 결과: arg=file이면 filesDir/speech.pcm을 보낸다 ----
+    fun stt(ctx: Context, arg: String) {
+        val pcm = if (arg == "file") java.io.File(ctx.filesDir, "speech.pcm") else null
+        log("⑧ STT 시작 pcm=${pcm?.let { "${it.exists()} ${it.length()}B" } ?: "마이크"}")
+        Listener.listen(ctx, pcm, onAnswer = { log("⑧ STT 답: $it") }, onEnd = { log("⑧ STT 종료") })
+    }
+
+    // ---- ⑥ 길안내 요청 (좌표 arg=lat,lon,이름) ----
+    private var naviForRoute: NaviHelper? = null
+    fun route(ctx: Context, arg: String) {
+        val n = naviForRoute ?: NaviHelper(ctx).also { it.initialize(); naviForRoute = it }
+        if (arg == "cancel") { n.cancelRoute(); log("⑥ cancelRoute"); return }
+        val p = arg.split(',')
+        n.requestRoute(RouteInfo(latitude = p[0].toDouble(), longitude = p[1].toDouble(), poiName = p[2], poiId = "", address = "", poiSubId = ""))
+        log("⑥ requestRoute ${p[2]}")
     }
 
     fun stop() {

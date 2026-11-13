@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,9 +49,11 @@ import com.dontstudyy.autolog.trip.TripKind
 import com.dontstudyy.autolog.trip.TripStatus
 import com.dontstudyy.autolog.vehicle.Gear
 import com.dontstudyy.autolog.vehicle.VehicleState
+import com.dontstudyy.autolog.voice.Listener
+import com.dontstudyy.autolog.voice.Speaker
 import kotlinx.coroutines.delay
 
-private enum class Screen { MAIN, REPORT, SETTINGS }
+private enum class Screen { MAIN, REPORT, SETTINGS, EXPORT }
 
 /** 일반업무로 답할 때 고르는 자주 쓰는 메모. */
 private val MEMO_CHIPS = listOf("거래처 미팅", "고객 방문", "납품·수거", "교육·회의")
@@ -66,11 +69,13 @@ fun AutoLogApp() {
     val userId by AutoLogRuntime.currentUserId.collectAsState()
     val fix by AutoLogRuntime.lastFix.collectAsState()
     val savePrompt by AutoLogRuntime.savePrompt.collectAsState()
+    val settings by AutoLogRuntime.settings.collectAsState()
 
     Box(Modifier.fillMaxSize().background(Palette.bg)) {
         when (screen) {
-            Screen.REPORT -> ReportScreen(trips = trips, onBack = { screen = Screen.MAIN })
-            Screen.SETTINGS -> SettingsScreen(places, profiles, userId, fix, onBack = { screen = Screen.MAIN })
+            Screen.REPORT -> ReportScreen(trips = trips, settings = settings, onBack = { screen = Screen.MAIN }, onExport = { screen = Screen.EXPORT })
+            Screen.EXPORT -> ExportScreen(onBack = { screen = Screen.REPORT })
+            Screen.SETTINGS -> SettingsScreen(places, profiles, userId, fix, settings, onBack = { screen = Screen.MAIN })
             Screen.MAIN -> MainScreen(
                 vehicle, trips, dismissed, places, profiles, userId, fix, savePrompt,
                 onReport = { screen = Screen.REPORT }, onSettings = { screen = Screen.SETTINGS },
@@ -163,10 +168,14 @@ private fun DrivingCard(vehicle: VehicleState, running: Trip) {
     }
 }
 
-/** 주차 후 목적 질문. 일반업무를 누르면 메모 칩을 고른다. */
+/** 주차 후 목적 질문. 일반업무를 누르면 메모 칩을 고른다. 질문은 소리로도 읽어 준다(실패해도 화면은 그대로). */
 @Composable
 private fun QuestionCard(trip: Trip) {
+    val ctx = LocalContext.current
     var memo by remember(trip.id) { mutableStateOf(false) }
+    var listening by remember(trip.id) { mutableStateOf(false) }
+    val sentence = "${kmShort(trip.distanceTenths)}킬로미터 운행했어요. 업무 목적인가요?"
+    LaunchedEffect(trip.id) { Speaker.speak(ctx, sentence) }
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Pill("● 주차 완료", Palette.accent, Palette.accentSoft)
         Text("${kmShort(trip.distanceTenths)}킬로미터 운행했어요.\n업무 목적인가요?", color = Palette.text, fontSize = 36.sp, fontWeight = FontWeight.Bold)
@@ -177,6 +186,15 @@ private fun QuestionCard(trip: Trip) {
                 BigButton("출퇴근") { AutoLogRuntime.answer(trip.id, Category.COMMUTE) }
                 BigButton("개인 용무") { AutoLogRuntime.answer(trip.id, Category.PRIVATE) }
                 BigButton("나중에") { AutoLogRuntime.dismissGap(trip.id) }
+            }
+            // 음성 답변은 보조: 인식이 안 되면 위 버튼으로 답한다.
+            BigButton(if (listening) "듣는 중… (말씀해 주세요)" else "말로 답하기", enabled = !listening) {
+                listening = true
+                Listener.listen(
+                    ctx,
+                    onAnswer = { a -> listening = false; AutoLogRuntime.answer(trip.id, a.category, a.note) },
+                    onEnd = { listening = false },
+                )
             }
         } else {
             Text("메모를 고르세요 (건너뛸 수 있어요)", color = Palette.text, fontSize = 22.sp)
@@ -408,10 +426,10 @@ private fun LogbookStrip(trips: List<Trip>, profiles: List<Profile>) {
     }
 }
 
-private val colWeights = listOf(1.1f, 1f, 1f, 1f, 1f, 0.9f, 1f, 3f)
+internal val colWeights = listOf(1.1f, 1f, 1f, 1f, 1f, 0.9f, 1f, 3f)
 
 @Composable
-private fun LogRow(cells: List<String>, header: Boolean = false) {
+internal fun LogRow(cells: List<String>, header: Boolean = false) {
     Row(
         Modifier.fillMaxWidth().height(if (header) 40.dp else 44.dp)
             .background(if (header) Palette.accentSoft else Palette.card)

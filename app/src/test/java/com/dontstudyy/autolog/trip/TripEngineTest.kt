@@ -4,6 +4,7 @@ import com.dontstudyy.autolog.report.logbookRows
 import com.dontstudyy.autolog.report.summarize
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -276,6 +277,24 @@ class TripEngineTest {
         val t = store.inProgress()!!
         assertEquals("회사", t.startPlace)
         assertEquals(3L, t.userId)
+    }
+
+    @Test
+    fun 길안내_정보는_진행_중인_운행에_붙고_완료_콜백에_실린다() {
+        val store = InMemoryTripStore()
+        val e = TripEngine(store)
+        val done = mutableListOf<Trip>()
+        e.onTripDone = { done += it }
+        e.onServiceStart(0, km(10.0), true)
+        assertFalse("진행 중 운행이 없으면 붙일 곳이 없다", e.attachNavi("거래처", 2600))
+        e.onGearChanged(1_000, false, km(10.0))
+        assertTrue(e.attachNavi("거래처", 2600))
+        e.onOdometer(2_000, km(12.0))
+        e.onGearChanged(3_000, true, km(12.0))
+        e.tick(3_000 + TripEngine.SETTLE_MS)
+        assertEquals("거래처", done.single().naviDest)
+        assertEquals(2600, done.single().tollWon)
+        assertEquals(2600, store.all().single().tollWon)
     }
 
     @Test

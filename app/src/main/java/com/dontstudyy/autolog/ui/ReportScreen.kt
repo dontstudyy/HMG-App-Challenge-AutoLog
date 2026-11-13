@@ -25,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dontstudyy.autolog.AutoLogRuntime
+import com.dontstudyy.autolog.report.AppSettings
+import com.dontstudyy.autolog.report.estimateFuelWon
 import com.dontstudyy.autolog.report.summarize
 import com.dontstudyy.autolog.trip.Category
 import com.dontstudyy.autolog.trip.Trip
@@ -42,7 +44,7 @@ private fun thisMonth(trips: List<Trip>): List<Trip> {
 }
 
 @Composable
-fun ReportScreen(trips: List<Trip>, onBack: () -> Unit) {
+fun ReportScreen(trips: List<Trip>, settings: AppSettings, onBack: () -> Unit, onExport: () -> Unit) {
     val month = thisMonth(trips).filter { it.status == TripStatus.DONE }
     val s = summarize(month)
     val monthNo = Calendar.getInstance().get(Calendar.MONTH) + 1
@@ -66,14 +68,17 @@ fun ReportScreen(trips: List<Trip>, onBack: () -> Unit) {
             Tile("출퇴근", "${kmShort(s.commuteTenths)} km", Modifier.weight(1f))
             Tile("일반업무", "${kmShort(s.businessTenths)} km", Modifier.weight(1f))
             Tile("개인 용무", "${kmShort(s.privateTenths)} km", Modifier.weight(1f))
-            Box(Modifier.weight(1f))
+            Tile(
+                "예상 유류비", "${commas(estimateFuelWon(s.totalTenths, settings.litersPer100km, settings.wonPerLiter))}원", Modifier.weight(1f),
+                sub = "입력값 기준 · 연비 ${settings.litersPer100km} L/100km",
+            )
+            Tile("예상 통행료", "${commas(s.tollWon)}원", Modifier.weight(1f), sub = "길안내를 쓴 운행 합계")
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Text("운행 목록", color = Palette.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text("미분류는 눌러서 정리하세요", color = Palette.dim, fontSize = 16.sp)
             Spacer(Modifier.weight(1f))
-            // 엑셀·PDF 내보내기는 단계 5에서 만든다.
-            BigButton("내보내기 (준비 중)", enabled = false, onClick = {})
+            BigButton("내보내기", primary = true, onClick = onExport)
         }
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(month.reversed(), key = { it.id }) { TripLine(it) }

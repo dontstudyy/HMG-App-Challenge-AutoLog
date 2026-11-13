@@ -19,13 +19,25 @@ import com.dontstudyy.autolog.data.toPlace
 import com.dontstudyy.autolog.data.toProfile
 import com.dontstudyy.autolog.location.Fix
 import com.dontstudyy.autolog.location.LocationSource
+import com.dontstudyy.autolog.navi.NaviSource
+import com.dontstudyy.autolog.report.AppSettings
+import com.dontstudyy.autolog.report.ExportResult
+import com.dontstudyy.autolog.report.LogbookDoc
+import com.dontstudyy.autolog.report.buildLogbookDoc
+import com.dontstudyy.autolog.report.exportLogbook
+import com.dontstudyy.autolog.report.monthBounds
+import com.dontstudyy.autolog.report.summarize
+import com.dontstudyy.autolog.report.tripsOfMonth
 import com.dontstudyy.autolog.trip.Category
 import com.dontstudyy.autolog.trip.Trip
 import com.dontstudyy.autolog.trip.TripEngine
+import com.dontstudyy.autolog.trip.TripKind
+import com.dontstudyy.autolog.trip.TripStatus
 import com.dontstudyy.autolog.trip.Where
 import com.dontstudyy.autolog.vehicle.Gear
 import com.dontstudyy.autolog.vehicle.VehicleSource
 import com.dontstudyy.autolog.vehicle.VehicleState
+import com.dontstudyy.autolog.voice.Answer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -33,7 +45,7 @@ import kotlinx.coroutines.flow.update
 data class SavePlacePrompt(val lat: Double, val lon: Double)
 
 /**
- * 프로세스 안에서 하나만 있는 앱 상태. 서비스가 [start]로 차량·위치 연결과 엔진을 돌리고,
+ * 프로세스 안에서 하나만 있는 앱 상태. 서비스가 [start]로 차량·위치·내비 연결과 엔진을 돌리고,
  * 화면은 StateFlow만 구독한다(엔진을 직접 건드리지 않음).
  * 엔진·DB 호출은 모두 메인 스레드에서 한다.
  */
@@ -45,6 +57,7 @@ object AutoLogRuntime : VehicleSource.Callback {
     val currentUserId = MutableStateFlow(0L)
     val lastFix = MutableStateFlow<Fix?>(null)
     val savePrompt = MutableStateFlow<SavePlacePrompt?>(null)
+    val settings = MutableStateFlow(AppSettings())
 
     /** '나중에'를 누른 운행 id(질문 카드와 빈 구간 카드 공용). */
     val dismissedGaps = MutableStateFlow<Set<Long>>(emptySet())
@@ -56,8 +69,15 @@ object AutoLogRuntime : VehicleSource.Callback {
     private val main = Handler(Looper.getMainLooper())
     private var source: VehicleSource? = null
     private var locationSource: LocationSource? = null
+    private var naviSource: NaviSource? = null
     private var engineStarted = false
     private var inited = false
+
+    /** 길안내가 시작됐지만 아직 운행에 붙이지 못한 정보(운행 시작 전에 목적지를 정한 경우). */
+    private var pendingNavi: Pair<String, Int>? = null
+
+    /** Gleo START_PRIVATE_TRIP: 이번(또는 다음) 운행을 개인 용무로 기록. */
+    private var forcePrivate = false
 
     private val tickRunnable = Runnable { tick() }
 
@@ -74,6 +94,7 @@ object AutoLogRuntime : VehicleSource.Callback {
         places.value = db.dao().places().map { it.toPlace() }
         val saved = db.dao().getSetting(KEY_USER)?.toLongOrNull()
         currentUserId.value = profiles.value.firstOrNull { it.id == saved }?.id ?: profiles.value.first().id
+        settings.value = loadSettings()
         refresh()
         inited = true
     }
@@ -83,6 +104,7 @@ object AutoLogRuntime : VehicleSource.Callback {
         if (source != null) return
         source = VehicleSource(appContext, this).also { it.start() }
         locationSource = LocationSource(appContext) { lastFix.value = it }.also { it.start() }
+        naviSource = NaviSource(appContext, ::onNaviRoute, ::onNaviCleared).also { it.start() }
     }
 
     fun stop() {
@@ -90,6 +112,8 @@ object AutoLogRuntime : VehicleSource.Callback {
         source = null
         locationSource?.stop()
         locationSource = null
+        naviSource?.stop()
+        naviSource = null
         engineStarted = false
         main.removeCallbacks(tickRunnable)
         vehicle.update { it.copy(connected = false) }
@@ -160,6 +184,49 @@ object AutoLogRuntime : VehicleSource.Callback {
         db.dao().putSetting(SettingEntity(KEY_USER, id.toString()))
     }
 
+    fun updateSettings(s: AppSettings) {
+        settings.value = s
+        val d = db.dao()
+        d.putSetting(SettingEntity(S_VEHICLE, s.vehicleType))
+        d.putSetting(SettingEntity(S_PLATE, s.plate))
+        d.putSetting(SettingEntity(S_COMPANY, s.company))
+        d.putSetting(SettingEntity(S_BIZNO, s.bizNo))
+        d.putSetting(SettingEntity(S_L100, s.litersPer100km.toString()))
+        d.putSetting(SettingEntity(S_PRICE, s.wonPerLiter.toString()))
+    }
+
+    // ---- Gleo(adb intent)와 음성에서 부르는 동작 ----
+
+    /** LOG_TRIP_PURPOSE: 가장 최근의 미분류 운행(없으면 가장 최근 운행)에 목적을 기록한다. 기록한 운행을 돌려준다. */
+    fun logPurpose(answer: Answer): Trip? {
+        if (!inited) return null
+        val normal = trips.value.filter { it.kind == TripKind.NORMAL && it.status == TripStatus.DONE }
+        val target = normal.lastOrNull { it.category == Category.UNCLASSIFIED && it.id !in dismissedGaps.value }
+            ?: normal.lastOrNull()
+            ?: return null
+        answer(target.id, answer.category, answer.note)
+        return target
+    }
+
+    /** START_PRIVATE_TRIP: 이번(또는 다음) 운행을 개인 용무로 기록한다. */
+    fun startPrivateTrip() {
+        forcePrivate = true
+    }
+
+    /** GET_BUSINESS_RATIO: 이번 달 업무사용비율(예: 85.8). 총 주행거리가 0이면 null. */
+    fun businessRatioText(): String? = summarize(tripsOfMonth(trips.value, System.currentTimeMillis())).ratioText()
+
+    /** 이번 달 운행기록부 내용. */
+    fun currentLogbookDoc(): LogbookDoc {
+        val now = System.currentTimeMillis()
+        val (start, end) = monthBounds(now)
+        val users = profiles.value.associate { it.id to (it.dept to it.name) }
+        return buildLogbookDoc(tripsOfMonth(trips.value, now), users, settings.value, start, end)
+    }
+
+    /** 엑셀·PDF를 앱 전용 폴더에 저장한다. */
+    fun export(): ExportResult = exportLogbook(appContext, currentLogbookDoc(), System.currentTimeMillis())
+
     // ---- VehicleSource.Callback (메인 스레드) ----
 
     override fun onReady(odoTenths: Int, gear: Gear) {
@@ -170,6 +237,7 @@ object AutoLogRuntime : VehicleSource.Callback {
             userId = currentUserId.value, where = whereNow(),
         )
         engineStarted = true
+        attachPendingNavi()
         afterEngine()
     }
 
@@ -179,6 +247,7 @@ object AutoLogRuntime : VehicleSource.Callback {
         if (!engineStarted || gear == Gear.UNKNOWN) return
         val odo = odoTenths ?: vehicle.value.odoTenths ?: return
         engine.onGearChanged(atMs, isPark = gear == Gear.PARK, odoTenths = odo, userId = currentUserId.value, where = whereNow())
+        if (gear != Gear.PARK) attachPendingNavi()
         afterEngine()
     }
 
@@ -193,6 +262,22 @@ object AutoLogRuntime : VehicleSource.Callback {
         vehicle.update { it.copy(uxRestricted = restricted) }
     }
 
+    // ---- 내비 ----
+
+    private fun onNaviRoute(dest: String, tollWon: Int) {
+        pendingNavi = dest to tollWon
+        if (inited && engine.attachNavi(dest, tollWon)) refresh()
+    }
+
+    private fun onNaviCleared() {
+        pendingNavi = null
+    }
+
+    private fun attachPendingNavi() {
+        val p = pendingNavi ?: return
+        if (engine.attachNavi(p.first, p.second)) refresh()
+    }
+
     // ---- 내부 ----
 
     /** 지금 위치(마지막으로 받은 위치)가 속한 등록 장소. 위치가 끊겨도 마지막 위치로 판정한다(설계서 7장). */
@@ -203,16 +288,35 @@ object AutoLogRuntime : VehicleSource.Callback {
 
     /** 운행이 끝났을 때 자동 분류. 확실하지 않으면 미분류로 남겨 질문 카드가 뜨게 한다. */
     private fun autoClassify(trip: Trip) {
+        pendingNavi = null
+        if (forcePrivate) {
+            forcePrivate = false
+            engine.reclassify(trip.id, Category.PRIVATE, "개인 용무")
+            return
+        }
         val all = places.value
         val start = all.firstOrNull { it.name == trip.startPlace }
         val end = all.firstOrNull { it.name == trip.endPlace }
-        val v = classify(start, end, naviDestination = null, places = all)
+        val v = classify(start, end, naviDestination = trip.naviDest.ifBlank { null }, places = all)
         if (v is Verdict.Auto) engine.reclassify(trip.id, v.category, v.note)
     }
 
     private fun addPlace(p: Place) {
         db.dao().insertPlace(p.toEntity().copy(id = 0))
         places.value = db.dao().places().map { it.toPlace() }
+    }
+
+    private fun loadSettings(): AppSettings {
+        val d = db.dao()
+        val def = AppSettings()
+        return AppSettings(
+            vehicleType = d.getSetting(S_VEHICLE) ?: def.vehicleType,
+            plate = d.getSetting(S_PLATE) ?: def.plate,
+            company = d.getSetting(S_COMPANY) ?: def.company,
+            bizNo = d.getSetting(S_BIZNO) ?: def.bizNo,
+            litersPer100km = d.getSetting(S_L100)?.toDoubleOrNull() ?: def.litersPer100km,
+            wonPerLiter = d.getSetting(S_PRICE)?.toIntOrNull() ?: def.wonPerLiter,
+        )
     }
 
     private fun tick() {
@@ -233,5 +337,11 @@ object AutoLogRuntime : VehicleSource.Callback {
 
     private const val KEY_DISMISSED = "dismissedGaps"
     private const val KEY_USER = "currentUser"
+    private const val S_VEHICLE = "set_vehicle"
+    private const val S_PLATE = "set_plate"
+    private const val S_COMPANY = "set_company"
+    private const val S_BIZNO = "set_bizno"
+    private const val S_L100 = "set_l100"
+    private const val S_PRICE = "set_price"
     private const val TAG = "AutoLogRT"
 }

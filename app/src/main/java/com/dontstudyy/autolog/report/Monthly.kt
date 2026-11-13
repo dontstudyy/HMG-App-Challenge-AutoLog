@@ -13,6 +13,8 @@ data class MonthlySummary(
     val privateTenths: Int,
     val unclassifiedTenths: Int,
     val unclassifiedCount: Int,
+    /** 완료된 운행의 예상 통행료 합(원). */
+    val tollWon: Int = 0,
 ) {
     /** 총 주행거리 = 출퇴근 + 일반업무 + 비업무 (미분류 제외). */
     val totalTenths: Int get() = commuteTenths + businessTenths + privateTenths
@@ -32,8 +34,10 @@ fun summarize(trips: List<Trip>): MonthlySummary {
     var private = 0
     var unc = 0
     var uncCount = 0
+    var toll = 0
     for (t in trips) {
         if (t.status != TripStatus.DONE) continue
+        toll += t.tollWon
         val d = t.distanceTenths
         when (t.category) {
             Category.COMMUTE -> commute += d
@@ -42,7 +46,7 @@ fun summarize(trips: List<Trip>): MonthlySummary {
             Category.UNCLASSIFIED -> { unc += d; uncCount++ }
         }
     }
-    return MonthlySummary(commute, business, private, unc, uncCount)
+    return MonthlySummary(commute, business, private, unc, uncCount, toll)
 }
 
 /** 운행기록부 한 줄. ⑤⑥은 소수점을 버린 정수 km, ⑦ = ⑥ − ⑤ (설계서 6장). */

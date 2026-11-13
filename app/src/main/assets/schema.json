@@ -1,0 +1,27 @@
+{
+  "packageName": "com.dontstudyy.autolog",
+  "appDescription": "오토로그: 업무 운행을 자동으로 기록하는 앱",
+  "version": "1.0",
+  "actionCalls": [
+    {
+      "component": "activity",
+      "name": "LOG_TRIP_PURPOSE",
+      "description": "방금 끝난 운행의 목적을 기록한다. 예: 거래처 미팅, 출근, 개인 용무",
+      "parameters": [
+        { "name": "purpose", "type": "string", "description": "운행 목적 (예: 거래처 미팅)", "required": true }
+      ]
+    },
+    {
+      "component": "activity",
+      "name": "START_PRIVATE_TRIP",
+      "description": "이번 운행을 개인 용무로 기록한다",
+      "parameters": []
+    },
+    {
+      "component": "activity",
+      "name": "GET_BUSINESS_RATIO",
+      "description": "이번 달 업무사용비율을 알려 준다",
+      "parameters": []
+    }
+  ]
+}

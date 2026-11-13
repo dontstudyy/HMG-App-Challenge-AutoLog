@@ -28,6 +28,10 @@ data class Trip(
     /** 도착 시점의 마지막 위치(미등록 위치를 거래처로 저장할 때 쓴다). 위치를 모르면 null. */
     val endLat: Double? = null,
     val endLon: Double? = null,
+    /** 길안내로 받은 예상 통행료(원). 길안내를 쓰지 않았으면 0. */
+    val tollWon: Int = 0,
+    /** 길안내 목적지 이름. 없으면 빈 문자열. */
+    val naviDest: String = "",
 ) {
     /** 진행 중이면 0. */
     val distanceTenths: Int get() = (endTenths ?: startTenths) - startTenths

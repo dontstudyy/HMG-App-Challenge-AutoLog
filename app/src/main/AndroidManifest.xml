@@ -30,6 +30,25 @@
         android:theme="@style/Theme.AutoLog">
         <uses-library android:name="android.car" android:required="false" />
 
+        <!-- Gleo 음성 명령: intent action이 기능 이름. assets/schema.json과 같아야 한다. -->
+        <activity
+            android:name=".voice.GleoActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="LOG_TRIP_PURPOSE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="START_PRIVATE_TRIP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="GET_BUSINESS_RATIO" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".service.RecordingService"
             android:exported="false"

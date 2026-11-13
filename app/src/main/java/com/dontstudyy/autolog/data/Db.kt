@@ -36,6 +36,8 @@ data class TripEntity(
     val endPlace: String,
     val endLat: Double?,
     val endLon: Double?,
+    val tollWon: Int,
+    val naviDest: String,
 )
 
 @Entity(tableName = "place")
@@ -109,7 +111,7 @@ interface AutoLogDao {
     fun removeSetting(key: String)
 }
 
-@Database(entities = [TripEntity::class, SettingEntity::class, PlaceEntity::class, ProfileEntity::class], version = 2, exportSchema = false)
+@Database(entities = [TripEntity::class, SettingEntity::class, PlaceEntity::class, ProfileEntity::class], version = 3, exportSchema = false)
 abstract class AutoLogDb : RoomDatabase() {
     abstract fun dao(): AutoLogDao
 
@@ -126,13 +128,13 @@ abstract class AutoLogDb : RoomDatabase() {
 private fun TripEntity.toTrip() = Trip(
     id, startTimeMs, endTimeMs, userId, startTenths, endTenths,
     Category.valueOf(category), note, TripKind.valueOf(kind), TripStatus.valueOf(status),
-    startPlace, endPlace, endLat, endLon,
+    startPlace, endPlace, endLat, endLon, tollWon, naviDest,
 )
 
 private fun Trip.toEntity() = TripEntity(
     id, startTimeMs, endTimeMs, userId, startTenths, endTenths,
     category.name, note, kind.name, status.name,
-    startPlace, endPlace, endLat, endLon,
+    startPlace, endPlace, endLat, endLon, tollWon, naviDest,
 )
 
 /** 엔진이 쓰는 [TripStore]의 Room 구현. */
