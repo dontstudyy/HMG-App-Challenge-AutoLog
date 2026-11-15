@@ -1,7 +1,7 @@
 # AutoLog 개발 체크리스트
 
 완료한 항목은 `[ ]`를 `[x]`로 바꾼다. 단계마다 **통과 기준**을 만족해야 다음 단계로 간다. 못 미치면 측정값과 원인을 기록한다.
-근거: `.private/오토로그_개발설계.md` (비공개).
+근거: 오토로그 개발 설계서(저장소에 포함하지 않음).
 **목표: 11월 15일까지 단계 0~3(핵심 흐름), 단계 4~6은 2차 PT 전.**
 
 - applicationId / namespace: `com.dontstudyy.autolog`
@@ -11,7 +11,7 @@
 
 - [ ] A5 시연용 에뮬레이터: ① AutoLog 전용 AVD 새로 생성(추천) / ② 기존 AVD 초기화 / ③ 현재 주행거리에서 시작. 단계 6 전까지
 - [ ] B11 제출 서류 수정 여부 (트립 API, 주차 브레이크 경고등, 누적 연비 부분)
-- [~] 국세청 「업무용승용차 운행기록부」 서식 원본 확보 (단계 5 내보내기 칸 구성용) — 제3자가 올린 엑셀 사본(2016.4.1. 제정 서식)에서 칸 구성 확인(`.private/운행기록부_서식_칸구성.md`). 국세청·법제처 원본은 자동 다운로드가 막혀 못 받음. 제출 전 원본 hwp와 대조 필요
+- [~] 국세청 「업무용승용차 운행기록부」 서식 원본 확보 (단계 5 내보내기 칸 구성용) — 제3자가 올린 엑셀 사본(2016.4.1. 제정 서식)에서 칸 구성 확인(저장소에 포함하지 않은 개발 메모). 국세청·법제처 원본은 자동 다운로드가 막혀 못 받음. 제출 전 원본 hwp와 대조 필요
 
 > 주행거리는 Virtual Console에서 **줄일 수 없다.** 주행거리를 올리는 실험은 0.1~1km씩만 하고 올린 양을 README에 기록한다. 한 번에 1km 넘게 올려야 하면 먼저 확인한다.
 
@@ -20,7 +20,7 @@
 - [x] `HYU_Challange` probe 프로젝트에서 빌드 설정 복사 (Gradle 9.6, compileSdk 37, minSdk 28, Vehicle 2.3.2, NaviHelper 3.0.5, FusedLocation 1.1.3, TTS·STT 3.3.1)
 - [x] `namespace` / `applicationId` = `com.dontstudyy.autolog`, `rootProject.name` 변경
 - [x] 매니페스트 권한: `CAR_DRIVE`, `CAR_SEATS`, `CAR_ENERGY`, `CAR_INFO`, `FUSED_LOCATION`, `NAVI_ROUTE`, `TTS_SERVICE`, `STT_SERVICE`, `android.car.permission.CAR_POWERTRAIN`, 포그라운드 서비스·알림
-- [x] 단위 테스트용 `trips.json`을 `app/src/test/resources/`로 복사 (`.private`는 공개되지 않으므로 테스트에 필요한 파일은 앱 폴더로)
+- [x] 단위 테스트용 `trips.json`을 `app/src/test/resources/`로 복사 (비공개 개발 자료 폴더는 저장소에 없으므로 테스트에 필요한 파일은 앱 폴더로)
 - [~] 빈 앱이 에뮬레이터에서 빌드·실행됨 (CLI `assembleDebug` 성공 확인, 에뮬레이터 실행은 사용자 확인 필요)
 
 ## 단계 0. 확인 실험 (11/15 범위)

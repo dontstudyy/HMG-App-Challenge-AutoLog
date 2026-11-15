@@ -8,7 +8,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 국세청 「업무용승용차 운행기록부」 서식(`.private/운행기록부_서식_칸구성.md`) 한 건의 내용.
+ * 국세청 「업무용승용차 운행기록부」 서식(칸 구성 메모는 저장소에 포함하지 않음) 한 건의 내용.
  * ⑤⑥은 소수점을 버린 정수 km, ⑦ = ⑥ − ⑤, ⑧⑨는 업무용(출퇴근·일반업무)만 채운다.
  */
 data class LogRowData(

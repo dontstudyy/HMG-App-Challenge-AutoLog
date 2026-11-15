@@ -3,7 +3,7 @@
 > **운행이 끝나면 운행기록부도 끝나 있게.** 기어가 P를 벗어나고 돌아오는 순간의 **계기판 누적거리**로 업무 운행 한 건을 자동으로 만들고, 앱이 꺼져 있던 구간까지 찾아내 국세청 「업무용승용차 운행기록부」 서식으로 내보내는 차량용 앱입니다.
 
 - 대상 환경: Pleos Connect 에뮬레이터 (Android / Kotlin / Pleos Connect SDK)
-- 제출 APK: [`apk/정통윤_AutoLog_release.apk`](apk/정통윤_AutoLog_release.apk) (release 서명, 약 25MB)
+- 제출 APK: [`apk/정통윤_AutoLog_release.apk`](apk/%EC%A0%95%ED%86%B5%EC%9C%A4_AutoLog_release.apk) (release 서명, 약 25MB)
 
 ## 무엇을 하나
 
@@ -154,7 +154,7 @@ gradlew.bat assembleRelease                     # keystore.properties가 없으�
   - 저장 위치: 앱 전용 폴더(`Android/data/<패키지>/files/exports`)와 공용 `Download/AutoLog/`(MediaStore). **앱 전용 폴더는 `adb pull`·`run-as`로 읽을 수 없고(권한 거부), `Download/AutoLog`도 `adb pull`이 사용자 10 저장소 권한 때문에 막힌다.** 꺼내는 방법: `adb shell "content query --user 10 --uri content://media/external/file --projection _id:_display_name --where \"_display_name like 'logbook%'\""`로 `_id`를 찾고 `adb exec-out "content read --user 10 --uri content://media/external/file/<id>" > logbook.xlsx`.
   - 꺼낸 엑셀을 openpyxl로 열어 확인: 시트 `운행기록부`, 서식 칸 이름(①②③…⑬), ⑤⑥⑦⑧⑨는 숫자 셀, ⑬은 `100.0`에 `0.0"%"` 서식. PDF는 PyMuPDF로 렌더링해 한글·표·⑪⑫⑬이 맞게 그려지는 것을 확인했다.
   - 에뮬레이터 값은 2 / 2 / 100.0%(운행이 0.3km씩이라 정수 km로 버림되어 작다). 155 / 133 / 85.8%는 단위 테스트(`CostAndExportTest`)로 확인했고 화면에서는 못 봤다.
-  - 서식 칸 구성은 제3자가 올린 2016년 서식 엑셀 사본 기준이다(`.private/운행기록부_서식_칸구성.md`). 국세청 원본과 대조해야 한다.
+  - 서식 칸 구성은 제3자가 올린 2016년 서식 엑셀 사본 기준이다(저장소에 포함하지 않은 개발 메모에 칸 구성을 정리해 두었다). 국세청 원본과 대조해야 한다.
 
 ### 단계 6 release 빌드 검증
 
