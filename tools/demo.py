@@ -10,12 +10,19 @@
 
 실행
   python tools/demo.py                       # dry-run: 계획만 출력(아무것도 바꾸지 않음)
-  python tools/demo.py --execute --allow-large-odometer-increase
-  python tools/demo.py --execute --start 12321 --pause    # 사람이 단계마다 Enter로 넘김(녹화용)
+  python tools/demo.py --execute             # 현재 누적거리에서 시작해 실행(현재 값이 얼마든 상관없음)
+  python tools/demo.py --execute --pause     # 사람이 단계마다 Enter로 넘김(녹화용)
+  python tools/demo.py --execute --start 12321 --allow-large-odometer-increase   # 목업의 12,321km 숫자에 맞추기
+
+시작 누적거리
+  기본은 현재 값에서 시작한다. 모든 숫자가 현재 값만큼 옮겨질 뿐이라 업무사용비율 82.1% → 85.8%는 같다
+  (현재 7,000km라면 7,000 → 7,155km로 기록된다).
+  목업의 12,321km 숫자에 맞추려면 --start 12321 을 쓴다. 에뮬레이터 주행거리는 줄일 수 없으므로 현재 값이
+  12,321 이하일 때만 가능하고(그만큼 한 번에 올리므로 --allow-large-odometer-increase 필요),
+  현재 값이 더 크면 --start는 무시하고 현재 값에서 시작한다.
 
 주의
-  - 에뮬레이터 주행거리는 **줄일 수 없다.** 현재 값이 --start보다 크면 실행하지 않는다(새 AVD를 쓰거나 --start current).
-  - 시작 값까지 한 번에 올리거나 운행 하나가 1km를 넘으면 --allow-large-odometer-increase가 필요하다.
+  - 주행거리를 올리는 것은 되돌릴 수 없고 같은 AVD를 쓰는 다른 앱에도 보인다. 그래서 기본은 dry-run이고 --execute를 붙여야 실행한다.
   - 날짜·거리를 덮어쓰는 기능은 앱에 없다. 모든 값은 Virtual Console과 adb로만 넣는다.
   - 숫자는 tools/trips.json(목업 영상의 6건)에서 읽는다. --scale로 거리를 줄여 스모크 테스트를 할 수 있다.
 """
@@ -51,6 +58,26 @@ PLAN = {
     4: ("고객사", "집", "김대리", ("LOG_TRIP_PURPOSE", "퇴근"), "프로필 김대리 — 출발이 미등록이라 질문 → 퇴근"),
     5: ("집", "개인 용무 장소", None, ("LOG_TRIP_PURPOSE", "개인 용무"), "개인 용무"),
 }
+
+
+DEFAULT_START = 12321.0  # 목업 영상의 시작 누적거리(km)
+
+
+def decide_start(arg, cur):
+    """시작 누적거리를 정한다. 반환: (시작값, 안내 문구).
+
+    - arg == 'current': 현재 값에서 시작. 현재 값을 모르면(연결 없음) 목업 값으로 보여 준다.
+    - arg가 숫자: 그 값. 단 에뮬레이터 주행거리는 줄일 수 없으므로 현재 값보다 작으면 현재 값에서 시작한다.
+    """
+    if arg == "current":
+        if cur is None:
+            return DEFAULT_START, f"에뮬레이터에 연결되지 않아 목업 값 {DEFAULT_START:,.0f}km로 계획만 보여 줘요(실행하면 현재 값에서 시작)"
+        return cur, f"현재 누적거리 {cur:,.1f}km에서 시작해요(숫자가 모두 그만큼 옮겨져요)"
+    want = float(arg)
+    if cur is not None and want < cur - 0.05:
+        return cur, (f"요청한 시작값 {want:,.1f}km가 현재 {cur:,.1f}km보다 작아요. "
+                     "주행거리는 줄일 수 없어서 현재 값에서 시작해요")
+    return want, f"시작 누적거리를 {want:,.1f}km로 맞춰요"
 
 
 def load_trips():
@@ -110,6 +137,12 @@ class Console:
     def odometer(self):
         return float(self.state()["odometer"]["traveled_distance_km"])
 
+    @staticmethod
+    def read_odometer(host):
+        """하트비트 없이 현재 누적거리만 읽는다(dry-run에서도 쓴다)."""
+        with urllib.request.urlopen("http://" + host + "/vehicle/state", timeout=3) as r:
+            return float(json.load(r)["odometer"]["traveled_distance_km"])
+
     def gear(self, g):
         self.put("/vehicle/gear", gear=g)
 
@@ -155,14 +188,15 @@ class Adb:
 def main():
     ap = argparse.ArgumentParser(description="오토로그 시연 스크립트 (기본은 dry-run)")
     ap.add_argument("--execute", action="store_true", help="실제로 에뮬레이터를 조작한다(없으면 계획만 출력)")
-    ap.add_argument("--start", default="12321", help="시작 누적거리(km) 또는 'current'(현재 값에서 시작). 기본 12321")
+    ap.add_argument("--start", default="current",
+                    help="시작 누적거리(km) 또는 'current'(기본: 현재 값에서 시작). 숫자가 현재 값보다 작으면 현재 값에서 시작")
     ap.add_argument("--scale", type=float, default=1.0, help="운행 거리 배율(스모크 테스트용, 기본 1.0)")
     ap.add_argument("--host", default="127.0.0.1:8088", help="Virtual Console 주소(adb forward 필요)")
     ap.add_argument("--serial", help="adb 시리얼")
     ap.add_argument("--drive-seconds", type=float, default=6.0, help="운행 하나를 달리는 데 쓰는 시간(초)")
     ap.add_argument("--pause", action="store_true", help="단계마다 Enter를 기다린다(녹화용). 사람 조작 단계는 항상 안내만 한다")
     ap.add_argument("--allow-large-odometer-increase", action="store_true",
-                    help="주행거리를 한 번에 1km 넘게 올리는 것을 허용(주행거리는 줄일 수 없음을 확인했다는 뜻)")
+                    help="--start로 현재 값보다 1km 넘게 큰 값을 지정할 때 필요(주행거리는 줄일 수 없어 되돌릴 수 없다는 확인)")
     ap.add_argument("--navi", action="store_true", help="debug 빌드의 실험 수신기로 길안내를 시작한다(release APK에는 없음)")
     args = ap.parse_args()
 
@@ -177,14 +211,13 @@ def main():
 
     # ---- 시작값 ----
     cur = None
-    if args.execute:
-        try:
-            cur = console.odometer()
-        except Exception as e:
+    try:
+        cur = Console.read_odometer(args.host)  # 읽기만 한다(하트비트·조작 없음)
+    except Exception as e:
+        if args.execute:
             sys.exit(f"Virtual Console에 연결할 수 없어요({e}). adb forward tcp:8088 tcp:8088 을 확인하세요.")
-    start = cur if args.start == "current" else float(args.start)
-    if cur is not None and cur - start > 0.05:
-        sys.exit(f"현재 누적거리 {cur:.1f}km가 시작값 {start:.1f}km보다 커요. 주행거리는 줄일 수 없으니 새 AVD를 쓰거나 --start current 로 실행하세요.")
+    start, start_note = decide_start(args.start, cur)
+    print(start_note)
 
     legs = []  # (번호, 목표 누적거리, 거리)
     pos = start
@@ -193,8 +226,8 @@ def main():
         legs.append((r["no"], pos + d, d))
         pos += d
     gap = trips[5]["dist"] * s
-    total_increase = (pos + gap) - (cur if cur is not None else 0.0)
-    print(f"시작 누적거리 {start:,.1f}km, 운행 {len(legs)}건 + 빈 구간 {gap:.1f}km → 끝 {pos + gap:,.1f}km (배율 {s})")
+    total_increase = (pos + gap) - (cur if cur is not None else start)
+    print(f"시작 누적거리 {start:,.1f}km, 운행 {len(legs)}건 + 빈 구간 {gap:.1f}km → 끝 {pos + gap:,.1f}km (배율 {s}, 총 +{total_increase:,.1f}km)")
     print(f"계획 검증: trips.json 합계·비율·연속성 OK (정리 전 {data['expect']['beforeRatio']}% → 정리 후 {data['expect']['afterRatio']}%)")
     for no, target, d in legs:
         a, b, who, ans, note = PLAN[no]
@@ -205,11 +238,11 @@ def main():
         print("\ndry-run입니다. 실제로 조작하려면 --execute 를 붙이세요.")
         return
 
-    biggest = max([d for _, _, d in legs] + [gap])
     big_jump = start - cur
-    if (biggest > 1.0 or big_jump > 1.0) and not args.allow_large_odometer_increase:
-        sys.exit(f"주행거리를 한 번에 1km 넘게 올려야 해요(시작값까지 +{max(big_jump, 0):.1f}km, 운행 최대 +{biggest:.1f}km). "
-                 "주행거리는 줄일 수 없어요. 괜찮다면 --allow-large-odometer-increase 를 붙이세요.")
+    if big_jump > 1.0 and not args.allow_large_odometer_increase:
+        sys.exit(f"시작값까지 주행거리를 +{big_jump:,.1f}km 한 번에 올려야 해요. 주행거리는 줄일 수 없어서 되돌릴 수 없어요. "
+                 "괜찮다면 --allow-large-odometer-increase 를 붙이거나, --start 없이(현재 값에서 시작) 실행하세요.")
+    print(f"\n주행거리를 총 +{total_increase:,.1f}km 올립니다(되돌릴 수 없어요).")
 
     def wait(msg):
         if args.pause:
