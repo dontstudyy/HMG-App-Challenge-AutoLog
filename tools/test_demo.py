@@ -8,31 +8,16 @@ import demo  # noqa: E402
 
 
 class DecideStartTest(unittest.TestCase):
-    def test_기본은_현재_값에서_시작한다(self):
+    def test_항상_현재_값에서_시작한다(self):
         for cur in (0.0, 4.9, 7000.0, 12321.0, 98765.4):
-            start, note = demo.decide_start("current", cur)
+            start, note = demo.decide_start(cur)
             self.assertEqual(start, cur)
             self.assertIn("현재 누적거리", note)
 
     def test_연결이_없으면_목업_값으로_계획만_보여준다(self):
-        start, note = demo.decide_start("current", None)
+        start, note = demo.decide_start(None)
         self.assertEqual(start, demo.DEFAULT_START)
         self.assertIn("연결되지 않아", note)
-
-    def test_숫자를_주면_그_값(self):
-        start, _ = demo.decide_start("12321", 3.0)
-        self.assertEqual(start, 12321.0)
-        start, _ = demo.decide_start("12321", None)
-        self.assertEqual(start, 12321.0)
-
-    def test_현재_값보다_작은_시작값은_줄일_수_없어_현재_값에서_시작한다(self):
-        start, note = demo.decide_start("12321", 15000.0)
-        self.assertEqual(start, 15000.0)
-        self.assertIn("줄일 수 없어서", note)
-
-    def test_현재_값과_거의_같으면_요청값을_따른다(self):
-        start, _ = demo.decide_start("100.0", 100.04)
-        self.assertEqual(start, 100.0)
 
 
 class PlanTest(unittest.TestCase):
